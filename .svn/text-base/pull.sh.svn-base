@@ -1,0 +1,2 @@
+scp ron@140.247.116.250:/home/ron/PythonBase/*.py  .
+

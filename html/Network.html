@@ -1,0 +1,49 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" /> 
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"/> 
+<title>Google Maps JavaScript API v3 Example: KmlLayer KML Features</title> 
+<link href="http://code.google.com/apis/maps/documentation/javascript/examples/standard.css" rel="stylesheet" type="text/css" /> 
+<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script> 
+<script type="text/javascript"> 
+function initialize() {
+	var myLatlng2 = new google.maps.LatLng(41.65, -87.62);
+	var myOptions2 = {
+		zoom: 7,
+		center: myLatlng2,
+		mapTypeControlOptions: {
+			mapTypeIds: ['Blank']
+		}
+	}; 
+	
+	var style = [
+		{
+			featureType: "all",
+			elementType: "all",
+			stylers: [ { visibility: 'off' } ]
+		}
+	];
+	var map2 = new google.maps.Map(document.getElementById("map2_canvas"), myOptions2); 
+	var styledMapOptions = { name: "Blank" }
+	var jayzMapType = new google.maps.StyledMapType(style, styledMapOptions);
+	map2.mapTypes.set('Blank', jayzMapType);
+	map2.setMapTypeId('Blank');
+	
+	var d = new Date();
+	
+	var def = new google.maps.KmlLayer('http://140.247.116.250/ron2.kml?B'+d.getTime(), { 
+		suppressInfoWindows: false, 
+		preserveViewport: false, 
+		map: map2 }
+	);	
+}
+	
+	
+	
+</script> 
+</head> 
+<body onload="initialize()"> 
+  <div id="map2_canvas" style="width:100%; height:100%; float:left"></div> 
+</body> 
+</html> 

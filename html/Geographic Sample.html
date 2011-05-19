@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+<style type="text/css">
+	html { height: 100% }
+	body { height: 100%; margin: 0px; padding: 0px }
+	#map_canvas { height: 100% }
+</style>
+<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+<script type="text/javascript">
+	var mapData = new Array();
+	mapData[0] = new Array(52.6782687642637,33.73297,-117.769321);
+	mapData[1] = new Array(45.7383865041171,33.972914,-118.24878);
+	mapData[2] = new Array(33.1360830515618,34.146607,-118.139103);
+	mapData[3] = new Array(30.8058436014987,33.500843,-117.658661);
+	mapData[4] = new Array(30.2158898594763,33.695576,-117.805881);
+	mapData[5] = new Array(27.4772633280682,33.828766,-118.313679);
+	mapData[6] = new Array(25.5342906696074,33.610717,-117.832509);
+	mapData[7] = new Array(25.2784493195291,33.823765,-118.266804);
+	mapData[8] = new Array(25,33.68762,-117.788527);
+	mapData[9] = new Array(23.0434372436058,33.828815,-118.383224);
+	mapData[10] = new Array(23,34.139536,-118.760709);
+	mapData[11] = new Array(22.8254244210267,33.758216,-118.364256);
+	mapData[12] = new Array(21.5870331449229,34.01491,-118.492202);
+	mapData[13] = new Array(19.7989898732233,33.782916,-118.026194);
+	mapData[14] = new Array(19.5703857907809,33.602823,-117.712959);
+	mapData[15] = new Array(19.4935886896179,34.133513,-118.664643);
+	mapData[16] = new Array(18.8679622641132,33.88898,-118.405357);
+	mapData[17] = new Array(18.8414436814168,33.844814,-117.953817);
+	mapData[18] = new Array(18.5472369909914,33.677224,-117.908637);
+	mapData[19] = new Array(18.1659021245849,33.972814,-118.17385);
+	mapData[20] = new Array(18.1383571472171,34.445313,-118.552528);
+	mapData[21] = new Array(17.8885438199983,33.695576,-117.805881);
+	mapData[22] = new Array(17.8044938147649,33.741651,-117.82127);
+	mapData[23] = new Array(17.6351920885484,33.639994,-117.603513);
+	mapData[24] = new Array(17.464249196573,34.004172,-117.816737);
+	mapData[25] = new Array(17.0293863659264,34.134057,-118.026624);
+	mapData[26] = new Array(16.8522995463527,33.640223,-117.691086);
+	mapData[27] = new Array(16.8522995463527,33.878981,-117.893255);
+	mapData[28] = new Array(16.583123951777,34.192102,-118.142061);
+	mapData[29] = new Array(15.9059737205869,34.17013,-118.291589);
+	mapData[30] = new Array(15.7797338380595,33.771548,-117.478842);
+	mapData[31] = new Array(15.3297097167559,33.992411,-118.465313);
+	mapData[32] = new Array(15.2315462117278,34.200104,-118.540992);
+	mapData[33] = new Array(15.1986841535707,33.639227,-117.58518);
+	mapData[34] = new Array(15.1986841535707,33.747017,-117.862488);
+	mapData[35] = new Array(15.0996688705415,34.197737,-118.647977);
+	mapData[36] = new Array(15.0332963783729,34.240353,-118.550385);
+	mapData[37] = new Array(14.8660687473185,34.168753,-118.516365);
+	mapData[38] = new Array(14.7986485869487,33.867215,-118.080622);
+	mapData[39] = new Array(14.7309198626562,33.784099,-118.387527);
+	mapData[40] = new Array(14.6628782986152,33.976373,-118.454586);
+	mapData[41] = new Array(14.5945195193264,34.000578,-117.969434);
+	mapData[42] = new Array(14.2126704035519,33.708618,-117.956295);
+	mapData[43] = new Array(13.7840487520902,33.460727,-117.66467);
+	mapData[44] = new Array(13.7477270848675,34.176505,-118.433088);
+	mapData[45] = new Array(13.7113092008021,33.732368,-118.289053);
+	mapData[46] = new Array(13.1909059582729,33.600172,-117.868237);
+	mapData[47] = new Array(13.1529464379659,33.685479,-117.666904);
+	mapData[48] = new Array(13.0384048104053,34.002333,-118.035629);
+	mapData[49] = new Array(12.9228479833201,34.101659,-117.657761);
+
+	function initialize() {
+	
+		var style = [
+			{
+				featureType: "road.highway",
+				elementType: "all",
+				stylers: [
+					{ visibility: 'off' }
+				]
+			},
+			{
+				featureType: "all",
+				elementType: "labels",
+				stylers: [
+					{ visibility: 'off' },
+					{ lightness: 10 }
+				]
+			}
+		];
+		var latlng = new google.maps.LatLng(33.88480, -118.089);
+		var myOptions = {
+			zoom: 9,
+			center: latlng,
+			mapTypeControlOptions: {
+				mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'NSF']
+			}
+		};
+		var map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+		var styledMapOptions = { name: "NSF" }
+		var jayzMapType = new google.maps.StyledMapType(style, styledMapOptions);
+		map.mapTypes.set('NSF', jayzMapType);
+		map.setMapTypeId('NSF');
+ 
+
+		var contentString="<div>RON</div>";		
+
+/*		for(i=0; i<25; i++) {
+			aX = Math.floor(Math.random()*25);
+			aY = Math.floor(Math.random()*25);
+			var flightPlanCoordinates = [
+				new google.maps.LatLng(mapData[aX][1], mapData[aX][2]),
+				new google.maps.LatLng(mapData[aY][1], mapData[aY][2]),
+			  ];
+			  var flightPath = new google.maps.Polyline({
+				path: flightPlanCoordinates,
+				strokeColor: "#cc3300",
+				strokeOpacity: 0.5,
+				strokeWeight: Math.floor(Math.random()*3)
+			  });
+			  flightPath.setMap(map);
+		}
+*/	
+		mode = 1
+		var marks = new Array();
+		
+		for(i=0; i<mapData.length; i++) {
+			var myLatlng = new google.maps.LatLng(mapData[i][1], mapData[i][2]);
+			if (mode==1) {
+				marks[i] = new google.maps.Circle({
+					center: myLatlng,
+					map: map,
+					radius: mapData[i][0]*100,
+					strokeColor: "#FFAA00",
+					strokeOpacity: 0.5,
+					fillColor: ((Math.random()<0.9)?"#FF3300":"#9900FF"),
+					fillOpacity: 0.8,
+				});
+			} else {
+				//21x34
+				icon = new google.maps.MarkerImage(
+								"http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=|FF0000|FFFFFF",
+								null, null, null, new google.maps.Size(mapData[i][0]/25*21, mapData[i][0]/25*34));
+				marks[i] = new google.maps.Marker({
+					  position: myLatlng,
+					  map: map,
+					  icon: icon,
+					  shadow: "no",
+					  title: "Marker"+i,
+				  });		
+			}
+		}
+		for (var i = 0; i < marks.length; i++) { 
+			updateMarker(marks[i], i, map); 
+		} 
+	}
+	function updateMarker(marker, st, map) { 
+		google.maps.event.addListener(marker, "click", function() { 
+			//marks[0].setMap(null)
+			for(j=0; j<2; j++) {
+				aY = Math.floor(Math.random()*25);
+				var flightPlanCoordinates = [
+					new google.maps.LatLng(mapData[st][1], mapData[st][2]),
+					new google.maps.LatLng(mapData[aY][1], mapData[aY][2]),
+				  ];
+				  var flightPath = new google.maps.Polyline({
+					path: flightPlanCoordinates,
+					strokeColor: "#dd3300",
+					strokeOpacity: 0.5,
+					strokeWeight: 2
+				  });
+				  flightPath.setMap(map);
+			}
+		});		
+	} 
+
+</script>
+</head>
+<body onload="initialize()">
+	<div id="map_canvas" style="width: 600px; height:500px"></div>
+</body>
+</html>

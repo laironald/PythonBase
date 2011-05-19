@@ -1,0 +1,137 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" /> 
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"/> 
+<title>Google Maps JavaScript API v3 Example: KmlLayer KML Features</title> 
+<link href="http://code.google.com/apis/maps/documentation/javascript/examples/standard.css" rel="stylesheet" type="text/css" /> 
+<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script> 
+<script type="text/javascript"> 
+var map2;
+var myLatlng2;
+function initialize() {
+	var myLatlng = new google.maps.LatLng(40.65, -73.95);
+	var myOptions = {
+		zoom: 7,
+		center: myLatlng,
+		mapTypeId: google.maps.MapTypeId.ROADMAP
+	};
+	myLatlng2 = new google.maps.LatLng(41.65, -87.62);
+	var myOptions2 = {
+		zoom: 7,
+		center: myLatlng2,
+		mapTypeControlOptions: {
+			mapTypeIds: ['Blank']
+		}
+	}; 
+	
+	var style = [
+		{
+			featureType: "all",
+			elementType: "all",
+			stylers: [ { visibility: 'off' } ]
+		}
+	];
+	map2 = new google.maps.Map(document.getElementById("map2_canvas"), myOptions2); 
+	var styledMapOptions = { name: "Blank" }
+	var jayzMapType = new google.maps.StyledMapType(style, styledMapOptions);
+	map2.mapTypes.set('Blank', jayzMapType);
+	map2.setMapTypeId('Blank');
+
+	var def = new google.maps.KmlLayer('http://140.247.116.250/ron2.kml?A9', { 
+		suppressInfoWindows: true, 
+		preserveViewport: false, 
+		map: map2 }
+	);	
+	lastClick = "";
+	var def2 = null;
+	google.maps.event.addListener(def, 'click', 
+		function(kmlEvent) {
+			var text = kmlEvent.featureData.id;
+			showInContentWindow(text);
+			text.visibility
+			/*
+				if (def2!=null) {
+					def2.setMap(null)
+				}
+				if (lastClick!=text) {
+					lastClick=text
+					def2 = new google.maps.KmlLayer('http://140.247.116.250/ron2.php?A2&id='+text, { 
+						suppressInfoWindows: true, 
+						preserveViewport: true, 
+						map: map2 }
+					);
+					showInContentWindow(text);
+				} else {
+					lastClick = "";
+					showInContextWindow("erase");
+				}
+			*/
+		}
+	);
+				
+				
+	var map = new google.maps.Map(document.getElementById("map_canvas"), myOptions); 
+	var latlng = new google.maps.LatLng(33.88480, -118.089);
+	var nyLayer = new google.maps.KmlLayer('http://140.247.116.250/ron4.kml?17', { 
+		suppressInfoWindows: true, 
+		preserveViewport: false, 
+		map: map }
+	);
+
+	google.maps.event.addListener(nyLayer, 'click', 
+		function(kmlEvent) {
+			var text = kmlEvent.featureData.description;
+			showInContentWindow(text);
+		}
+	);
+
+	google.maps.event.addListener(map, 'zoom_changed',
+		function(evt) {
+			map2.panTo(myLatlng2)
+			//alert("HELLO!"+map.zoom);
+			//showInContentWindow(map.zoom);
+			if (map.zoom==5) {
+				nyLayer.setMap(null);
+				var chicago = new google.maps.KmlLayer('http://gmaps-samples.googlecode.com/svn/trunk/ggeoxml/cta.kml', { 
+					suppressInfoWindows: true, 
+					preserveViewport: false, 
+					map: map2 }
+				);
+			} else if (map.zoom==8) {
+				var chicago2 = new google.maps.KmlLayer('http://140.247.116.250/ron5.kml', { 
+					suppressInfoWindows: false, 
+					preserveViewport: false, 
+					map: map2 }
+				);
+			} else if (map.zoom==9) {
+				var chicago = new google.maps.KmlLayer('http://econym.org.uk/gmap/googleplex2.xml', { 
+					suppressInfoWindows: false, 
+					preserveViewport: false, 
+					map: map2 }
+				);
+			} else if (map.zoom==10) {
+				var chicago = new GGeoXML('http://econym.org.uk/gmap/googleplex2.xml');
+				map.addOverlay(kml);
+			}
+		}
+	);
+	function showInContentWindow(text) {
+		var sidediv = document.getElementById('content_window');
+		sidediv.innerHTML = text;
+		//nyLayer.setMap(null);
+	}	
+}
+	
+
+	
+</script> 
+</head> 
+<body onload="initialize()"> 
+  <div id="map_canvas" style="width:100%; height:100%; float:left"></div> 
+  <div id="map2_canvas" style="position: absolute; right: 10px; background-color: #ffffff; font-style: arial; font-size: 9pt; width: 800px; height: 500px; padding: 5px; top: 10px; float:left; border: 25px solid #ffffff;"></div> 
+  <div id="content_window" style="position: absolute; right: 10px; background-color: #ffffff; font-style: arial; font-size: 9pt; width: 400px; padding: 5px; bottom: 10px; float:left; border: 1px solid #ccc;"></div> 
+
+	<a onclick="map2.panTo(new google.maps.LatLng(7.5, 12.5))">CLICK</a>
+ </body> 
+</html> 

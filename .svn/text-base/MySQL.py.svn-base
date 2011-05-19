@@ -1,0 +1,446 @@
+def dbAdd(db):
+    """
+    I tire of this code...
+    """
+    return db!=None and "%s." % db or ""
+
+class MySQL:
+    """
+    The following extends sqlite3, a commonly used library for the Patent Team
+     - remember, in classes "self" refers to the class and is not really a paramater
+     - table is an optional parameter for many of these functions.
+       If the variable is not set, it defaults to the table set during initialization
+    """
+    def __init__(self, cfg={'host':'localhost', 'user':'root', 'passwd':'root', 'db':'RD'}, table="main"):
+        """
+        Initiate the database.
+        Specify the location of the database and the table.
+         - Automatically opens the connection
+         - tbl and table are the same!
+        """
+        self.tbl = table
+        self.cfg = cfg
+        self.open()
+##    def optimize(self):
+##        """
+##        Some basic optimization stuff w/r http://web.utk.edu/~jplyon/sqlite/SQLite_optimization_FAQ.html
+##        """
+##        self.c.executescript("""
+##            PRAGMA cache_size=2000000;
+##            PRAGMA synchronous=OFF;
+##            PRAGMA temp_store=2;
+##            """)
+    def getTbl(self, table=None):
+        if table==None:
+            return self.tbl
+        else:
+            return table
+    def chgTbl(self, table):
+        """
+        Not too complex.  Allows you to change the default table
+        """
+        self.tbl = table
+##    def commit(self):
+##        """
+##        Simply because .conn.commit() is too much work for my simple mind.
+##        This is often necessary after execute statements.
+##        Commit the data into the table/database.
+##        """
+##        self.conn.commit()
+    def open(self):
+        """
+        Opens the connection.
+        """
+        import MySQLdb
+        cfg = self.cfg
+        self.conn = MySQLdb.connect(host=cfg['host'], user=cfg['user'], passwd=cfg['passwd'], db=cfg['db'])
+        self.c = self.conn.cursor()
+    def close(self):
+        """
+        Close the connection. (The database is locked as the sqlite3 API is used)
+        """
+        self.c.close()
+        self.conn.close()
+##    def attach(self, database, name="db"):
+##        """
+##        Attaches a database and defaults it as db.
+##        """
+##        try:
+##            self.c.execute("ATTACH DATABASE '%s' AS %s" % (database, name))
+##        except:
+##            self.c.execute("DETACH DATABASE %s" % (name))
+##            self.c.execute("ATTACH DATABASE '%s' AS %s" % (database, name))            
+##    def detach(self, name="db"):
+##        """
+##        Detaches a database (default, db).
+##        """
+##        self.c.execute("DETACH DATABASE %s" % (name))
+##    def vacuum(self, name="db"):
+##        """
+##        Vacuum the database.
+##        (When indices and table are added and dropped, the database stays the same size.)
+##        """
+##        self.c.execute("vacuum")
+##        self.commit()
+##    def csvInput(self, fname):
+##        def decode(lst):
+##            import unicodedata
+##            try:
+##                return [x.decode("iso-8859-1") for x in lst]
+##            except:
+##                print lst
+##                return lst
+##        import csv
+##        f = open(fname, "rb")
+##        t = [decode(x) for x in csv.reader(f)]
+##        f.close()
+##        return t
+    def tables(self, lookup=None, db=None):
+        """
+        Returns a list of table names that exist within the database.
+        If lookup is specified, does that table exist within the list of tables?
+        """
+        db = (db == None and self.cfg['db'] or db)
+        self.c.execute("SHOW TABLES FROM %s" % db)
+        retList = [x[0] for x in self.c.fetchall()]
+        if lookup==None:
+            return retList
+        else:
+            return lookup in retList
+    def indexes(self, table=None, lookup=None, db=None, search=None):
+        """
+        Returns a list of index names that exist within the database
+        If lookup is specified, does that index exist within the list of indexes?
+        If search is specified, returns a list of indices that match the criteria
+        """
+        import re
+        table = self.getTbl(table)
+
+        self.c.execute("SHOW INDEXES FROM %s" % table)
+        retList = list(set([x[2] for x in self.c.fetchall()]))
+        if search!=None: #returns a range of numbers related to the search term
+            nums = [(lambda x:len(x)>0 and int(x[0]) or 1)(re.findall('[0-9]+', x)) for x in retList if x.find(search)>=0]
+            if len(nums)==0:
+                return [0, 0]
+            else:
+                return [min(nums), max(nums)]
+        elif lookup!=None:
+            return lookup.lower() in retList
+        else:
+            return retList
+        
+    def count(self, table=None):
+        """
+        I like these basic reports where I am curious about the size of the default table.
+        And for kicks- why not throw in the current time.
+        """
+        import datetime
+        table = self.getTbl(table)
+        if self.tables(lookup=table):
+            self.c.execute("SELECT count(*) FROM %s" % table)
+            cnt = self.c.fetchone()[0]
+            print datetime.datetime.now(), cnt
+            return cnt
+        else:
+            print datetime.datetime.now()
+            return 0
+    def addSQL(self, data, db=None, table=None, header=False, field=True, insert=""):
+        """
+        This serves three functions depending the type of data (flat CSV, pure data, existing table)
+        If data is a link to a database -- load the data into CSV
+        
+         - If data = table name, use the data as a base
+           - If table doesn't exist, replicate ELSE Insert
+         - Else
+           - If data = filename (CSV) ... Generate table using quickSQL (header toggle is for this one)
+         - ElseIf data = data, sounds good...!
+           - Insert data
+
+        Field=True, defaults that field names must match 1-1
+        """
+        import types
+        table = self.getTbl(table)
+##        if type(data)==types.StringType and not self.tables(db=db, lookup=table):
+##            data = self.csvInput(data)
+##        if insert!="":
+##            insert = "OR %s" % insert
+
+        if type(data)==types.StringType and self.tables(db=db, lookup=data):
+            if self.tables(db=db, lookup=table):
+                self.replicate(tableTo=table, table=data, db=db)
+            if field:
+                fieldTo = set(self.columns(table=table, output=False))
+                fieldFr = set(self.columns(table=data, db=db, output=False))
+                colList = ", ".join(list(fieldTo & fieldFr))
+                self.c.execute("INSERT %s INTO %s (%s) SELECT %s FROM %s%s" % (insert, table, colList, colList, dbAdd(db), data))
+            else:
+                self.c.execute("INSERT %s INTO %s SELECT * FROM %s%s" % (insert, table, dbAdd(db), data))
+                
+##        #if table exists ... just add data into it
+##        elif self.tables(db=db, lookup=table):
+##            self.c.executemany("INSERT %s INTO %s VALUES (%s)" % (insert, table, ", ".join(["?"]*len(data[0]))), data[int(header):])
+##        else:
+##            self.quickSQL(data, table=table, header=header)
+##            #need to make this so the variables are more flexible
+##    def quickSQL(self, data, table=None, override=False, header=False, typescan=50, typeList=[]):
+##        import re, types
+##        table = self.getTbl(table)
+##        if override:
+##            self.c.execute("DROP TABLE IF EXISTS %s" % table)
+##        elif self.tables(db=None, lookup=table):
+##            return
+##
+##        if header:
+##            headLst = []
+##            for x in data[0]:
+##                headLst.append(re.sub("[()!@#$%^&*'-]+", "", x).replace(" ", "_"))
+##                if headLst[-1] in headLst[:-1]:
+##                    headLst[-1]+=str(headLst[:-1].count(headLst[-1])+1)
+##            
+##        tList = []
+##        for i,x in enumerate(data[1]):
+##            if str(typeList).upper().find("%s " % data[0][i].upper())<0:
+##                cType = {types.StringType:"VARCHAR", types.UnicodeType:"VARCHAR", types.IntType:"INTEGER", types.FloatType: "REAL"}[type(x)]
+##                if type(typescan)==types.IntType and cType=="VARCHAR":
+##                    least = 2
+##                    ints = 1
+##                    for j in range(1, min(typescan+1, len(data))):
+##                        if type(data[j][i])==types.StringType or type(data[j][i])==types.UnicodeType:
+##                            if re.sub(r"[-,.]", "", data[j][i]).isdigit():
+##                                if len(re.findall(r"[.]", data[j][i]))==0:   pass
+##                                elif len(re.findall(r"[.]", data[j][i]))==1: ints = 0
+##                                else: least = 0; break
+##                            else: least = 0; break
+##                    cType = {0:"VARCHAR", 1:"INTEGER", 2:"REAL"}[max(least-ints, 0)]
+##                if header:
+##                    tList.append("%s %s" % (headLst[i], cType))
+##                else:
+##                    tList.append("v%d %s" % (i, cType))
+##            else:
+##                tList.extend([y for y in typeList if y.upper().find("%s " % data[0][i].upper())==0])
+##
+##        self.c.execute("CREATE TABLE IF NOT EXISTS %s (%s)" % (table, ", ".join(tList)))
+##        if header==False:
+##            self.c.executemany("INSERT INTO %s VALUES (%s)" % (table, ", ".join(["?"]*len(data[0]))), data)
+##        else:
+##            self.c.executemany("INSERT INTO %s VALUES (%s)" % (table, ", ".join(["?"]*len(data[0]))), data[1:])
+##        self.conn.commit()            
+    def columns(self, table=None, output=True, db=None, Type=False, lower=True):
+        table = self.getTbl(table)
+        self.c.execute("DESCRIBE %s" % table)        
+        if output:
+            for x in self.c.fetchall():
+                print x
+        else:
+            if Type:
+                if lower:
+                    return dict([[x[0].lower(), x[1]] for x in self.c.fetchall()])
+                else:
+                    return dict([x[:2] for x in self.c.fetchall()])                    
+            else:
+                return [x[0] for x in self.c.fetchall()]
+    def rename(self, fromKey, toKey, table=None):
+        table = self.getTbl(table)
+        import types
+        if type(fromKey)!=types.ListType:
+            fromKey = [fromKey]
+            toKey = [toKey]
+        colType = self.columns(table=table, output=False, Type=True)
+
+        for i in range(0, len(fromKey)):
+            try:
+                self.c.execute("ALTER TABLE %s CHANGE COLUMN %s %s %s" % (table, fromKey[i], toKey[i], colType[fromKey[i].lower()]))
+            except:
+                x=0
+        
+    def drop(self, keys, table=None): #drop columns -- doesn't exist so lame!
+        import types
+        table = self.getTbl(table)
+        if type(keys)!=types.ListType:
+            keys = [keys]
+
+        for x in keys:
+            try:
+                self.c.execute("ALTER TABLE %s DROP COLUMN %s" % (table, x))
+            except:
+                y=0
+    def add(self, key, typ=None, src=None, table=None):
+        table = self.getTbl(table)
+        import types
+
+        if src == None:
+            if type(key)!=types.ListType:
+                key = [key]
+                typ = [typ]
+            for i in range(0, len(key)):
+                try:
+                    self.c.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, key[i], typ[i]))
+                except:
+                    x=0
+        else:
+            key = [type(x)==types.StringType and [x,x] or x for x in key]
+            colType = self.columns(table=src, output=False, Type=True)
+            for i,x in enumerate(key):
+                self.add(x[0], typ!=None and typ[i] or colType[x[1].lower()])
+
+##    def delete(self, table=None): #delete table
+##        table = self.getTbl(table)
+##        self.c.execute("DROP TABLE IF EXISTS %s" % table)
+##        self.conn.commit()
+    def replicate(self, tableTo=None, table=None, db=None):
+        """
+        Replicates the basic structure of another table
+        """
+        table = self.getTbl(table)
+        try:
+            self.c.execute("CREATE TABLE %s LIKE %s" % (tableTo, table))
+        except:
+            y=0
+    def baseIndex(self, table=None, idx=None, db=None):
+        """
+        Boils down a Index to its most basic form.
+        Throw in an idx (string) to process that specific SQL.
+        """
+        import re
+        table = self.getTbl(table)
+
+        self.c.execute("SHOW INDEXES FROM %s" % table)
+        idxLst = {}
+        for x in self.c.fetchall():
+            if x[2] not in idxLst:
+                idxLst[x[2]] = [[], []]
+            idxLst[x[2]][0].append(x[4].lower())
+            idxLst[x[2]][1] = x[1]==0 and "unique " or ""
+
+        if idx==None:
+            sqls = [["create %sindex %s on %s (%s)" % (x[1][1], x[0], table, ", ".join(x[1][0])),] for x in idxLst.items()]
+        else:
+            sqls = [[idx,]]
+        #simplify the list
+        idxLst = [re.sub("  +", " ", re.sub(", ", ",", re.sub(re.compile('INDEX .*? ON', re.I), 'INDEX ON', x[0]))).lower() for x in sqls if x[0]!=None]
+        #reorders the keys (so sequentiality matters!)
+        idxLst = [re.sub("[(].*?[)]", "(%s)" % ",".join(sorted(re.findall("[(](.*?)[)]", x)[0].split(','))), x) for x in idxLst] 
+        if idx==None:
+            return idxLst
+        else:
+            return idxLst[0]
+        
+    def index(self, keys, index=None, table=None, db=None, unique=False):
+        """
+        Hey Amy!  Look, documentation
+        Index is for index name
+
+        Indicates if Index is created with Index name or None
+        """
+        import re
+        table = self.getTbl(table)
+
+        if index==None: 
+            index = [(lambda x:len(x)>0 and int(x[0]) or 1)(re.findall('[0-9]+', x)) for x in self.indexes(db=db) if x.find('idx_idx')>=0]
+            index = len(index)==0 and "idx_idx" or "idx_idx%d" % (max(index)+1)
+
+        #only create indexes if its necessary!  (it doens't already exist)
+        idxA = self.baseIndex(table=table)
+        idxSQL = "CREATE %sINDEX %s%s ON %s (%s)" % (unique and "UNIQUE " or "", dbAdd(db), index, table, ",".join(keys))
+        if self.baseIndex(idx=idxSQL, table=table, db=db) not in idxA:
+            self.c.execute(idxSQL)
+            return "%s%s" % (dbAdd(db), index)
+        else:
+            return None
+
+    #----- MERGE -----#
+
+    def merge(self, key, on, tableFrom, keyType=None, table=None):
+        """
+        Matches the on variables from two tables and updates the key values
+
+        Example of usage: (its on the table perspective, so that's first)
+        On and Keys take an iterable with values of string or list:
+
+        ie.
+        key = ["ed", ["eric", "amy"]]
+        on = ["ron", ["ron1", "amy"]]
+        keyType = ['VARCHAR', 'VARCHAR'] #if nothing will just be blanks
+
+        All together:
+
+        .add('ed', 'VARCHAR')
+        .add('eric', 'VARCHAR')
+
+        c.executemany("UPDATE table SET ed=?, eric=? WHERE ron=? AND ron1=?",
+            c.execute("SELECT b.ed, b.amy, b.ron, b.amy
+                         FROM table AS a INNER JOIN tableFrom AS b
+                           ON a.ron=b.ron AND a.ron1=b.amy").fetchall())       
+        """
+        import types, datetime
+        table = self.getTbl(table)
+        key = [type(x)==types.StringType and [x,x] or x for x in key]
+        on =  [type(x)==types.StringType and [x,x] or x for x in on]
+
+        self.add(key, typ=keyType, src=tableFrom)
+##        colType = self.columns(table=tableFrom, output=False, Type=True)
+##        for i,x in enumerate(key):
+##            self.add(x[0], keyType!=None and keyType[i] or colType[x[1].lower()])
+
+        def huggleMe(lst, sep=","):
+            return ("%s " % sep).join(["a.%s = b.%s" % tuple(x) for x in lst])
+            
+        idxT = self.index(keys=[x[0] for x in on], table=table)
+        idxF = self.index(keys=[x[1] for x in on], table=tableFrom)
+        
+##        print("""
+##            UPDATE  %s a, %s b
+##               SET  %s
+##             WHERE  %s;
+##            """ % (table, tableFrom, huggleMe(key), huggleMe(on, sep="AND")))
+        self.c.execute("""
+            UPDATE  %s a, %s b
+               SET  %s
+             WHERE  %s;
+            """ % (table, tableFrom, huggleMe(key), huggleMe(on, sep="AND")))
+
+        if idxT != None:
+            self.c.execute("DROP INDEX %s ON %s" % (idxT, table))
+        if idxF != None:
+            self.c.execute("DROP INDEX %s ON %s" % (idxF, tableFrom))
+        
+    #----- OUTPUTS -----#
+
+##    """
+##    EXPERIMENTAL FUNCTIONS
+##    """
+##    # IGRAPH / VISUALIZATION RELATED FUNCTIONS, very very preliminary
+##
+##    def igraph(self, where, table=None,
+##                 vx="Invnum_N", ed="Patent", order="AppYear",
+##                 va=", Lastname||', '||Firstname AS Name, City||'-'||State||'-'||Country AS Loc, Assignee, AsgNum",
+##                 ea=", a.AppYear AS AppYear", eg=', a.AppYear'):
+##        import math, datetime, senGraph
+##        table = self.getTbl(table)
+##        tab = senGraph.senTab()
+##        self.c.executescript("""
+##            DROP TABLE IF EXISTS G0;
+##            DROP TABLE IF EXISTS vx0;
+##            DROP TABLE IF EXISTS ed0;
+##            CREATE TEMP TABLE G0 AS
+##                SELECT * FROM %s WHERE %s ORDER BY %s;
+##            CREATE INDEX G_id ON G0 (%s);
+##            CREATE INDEX G_ed ON G0 (%s, %s);
+##            CREATE TEMPORARY TABLE vx0 AS
+##                SELECT %s, count(*) AS Patents %s FROM G0
+##                 GROUP BY %s;
+##            CREATE INDEX vx_id ON vx0 (%s);
+##            CREATE TEMPORARY TABLE ed0 AS
+##                SELECT  a.%s, b.%s, a.%s AS hId, b.%s AS tId, count(*) AS Weight %s
+##                  FROM  G0 AS a INNER JOIN G0 AS b
+##                    ON  a.%s=b.%s AND a.%s<b.%s
+##              GROUP BY  a.%s, b.%s %s;
+##            """ % (table, where, order, ed, vx, ed, vx, va, vx, vx,
+##                   vx, vx, vx, vx, ea, ed, ed, vx, vx, vx, vx, eg))
+##
+##        tab.vList = self.c.execute("SELECT * FROM vx0").fetchall()
+##        tab.vlst = self.columns(table="vx0", output=False)[1:]
+##        tab.eList = self.c.execute("SELECT * FROM ed0").fetchall()
+##        tab.elst = self.columns(table="ed0", output=False)[2:]
+##        s = senGraph.senGraph(tab, "vertex")
+##        return s        

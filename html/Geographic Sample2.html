@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+<style type="text/css">
+	html { height: 100% }
+	body { height: 100%; margin: 0px; padding: 0px }
+	#map_canvas { height: 100% }
+</style>
+<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+<script type="text/javascript">
+	var mapData = new Array();
+	mapData[0] = new Array(52.6782687642637,33.73297,-117.769321);
+	mapData[1] = new Array(45.7383865041171,33.972914,-118.24878);
+	mapData[2] = new Array(33.1360830515618,34.146607,-118.139103);
+	mapData[3] = new Array(30.8058436014987,33.500843,-117.658661);
+	mapData[4] = new Array(30.2158898594763,33.695576,-117.805881);
+	mapData[5] = new Array(27.4772633280682,33.828766,-118.313679);
+	mapData[6] = new Array(25.5342906696074,33.610717,-117.832509);
+	mapData[7] = new Array(25.2784493195291,33.823765,-118.266804);
+	mapData[8] = new Array(25,33.68762,-117.788527);
+	mapData[9] = new Array(23.0434372436058,33.828815,-118.383224);
+	mapData[10] = new Array(23,34.139536,-118.760709);
+	mapData[11] = new Array(22.8254244210267,33.758216,-118.364256);
+	mapData[12] = new Array(21.5870331449229,34.01491,-118.492202);
+	mapData[13] = new Array(19.7989898732233,33.782916,-118.026194);
+	mapData[14] = new Array(19.5703857907809,33.602823,-117.712959);
+	mapData[15] = new Array(19.4935886896179,34.133513,-118.664643);
+	mapData[16] = new Array(18.8679622641132,33.88898,-118.405357);
+	mapData[17] = new Array(18.8414436814168,33.844814,-117.953817);
+	mapData[18] = new Array(18.5472369909914,33.677224,-117.908637);
+	mapData[19] = new Array(18.1659021245849,33.972814,-118.17385);
+	mapData[20] = new Array(18.1383571472171,34.445313,-118.552528);
+	mapData[21] = new Array(17.8885438199983,33.695576,-117.805881);
+	mapData[22] = new Array(17.8044938147649,33.741651,-117.82127);
+	mapData[23] = new Array(17.6351920885484,33.639994,-117.603513);
+	mapData[24] = new Array(17.464249196573,34.004172,-117.816737);
+	mapData[25] = new Array(17.0293863659264,34.134057,-118.026624);
+	mapData[26] = new Array(16.8522995463527,33.640223,-117.691086);
+	mapData[27] = new Array(16.8522995463527,33.878981,-117.893255);
+	mapData[28] = new Array(16.583123951777,34.192102,-118.142061);
+	mapData[29] = new Array(15.9059737205869,34.17013,-118.291589);
+	mapData[30] = new Array(15.7797338380595,33.771548,-117.478842);
+	mapData[31] = new Array(15.3297097167559,33.992411,-118.465313);
+	mapData[32] = new Array(15.2315462117278,34.200104,-118.540992);
+	mapData[33] = new Array(15.1986841535707,33.639227,-117.58518);
+	mapData[34] = new Array(15.1986841535707,33.747017,-117.862488);
+	mapData[35] = new Array(15.0996688705415,34.197737,-118.647977);
+	mapData[36] = new Array(15.0332963783729,34.240353,-118.550385);
+	mapData[37] = new Array(14.8660687473185,34.168753,-118.516365);
+	mapData[38] = new Array(14.7986485869487,33.867215,-118.080622);
+	mapData[39] = new Array(14.7309198626562,33.784099,-118.387527);
+	mapData[40] = new Array(14.6628782986152,33.976373,-118.454586);
+	mapData[41] = new Array(14.5945195193264,34.000578,-117.969434);
+	mapData[42] = new Array(14.2126704035519,33.708618,-117.956295);
+	mapData[43] = new Array(13.7840487520902,33.460727,-117.66467);
+	mapData[44] = new Array(13.7477270848675,34.176505,-118.433088);
+	mapData[45] = new Array(13.7113092008021,33.732368,-118.289053);
+	mapData[46] = new Array(13.1909059582729,33.600172,-117.868237);
+	mapData[47] = new Array(13.1529464379659,33.685479,-117.666904);
+	mapData[48] = new Array(13.0384048104053,34.002333,-118.035629);
+	mapData[49] = new Array(12.9228479833201,34.101659,-117.657761);
+	mapData[50] = new Array(12.9228479833201,33.785166,-117.934063);
+	mapData[51] = new Array(12.8452325786651,34.035087,-118.707527);
+	mapData[52] = new Array(12.7671453348037,33.866314,-118.399681);
+	mapData[53] = new Array(12.2882057274445,34.112958,-118.155778);
+	mapData[54] = new Array(11.8743420870379,34.122658,-118.112964);
+	mapData[55] = new Array(11.8743420870379,33.985012,-117.897055);
+	mapData[56] = new Array(11.7898261225516,34.050505,-118.533744);
+	mapData[57] = new Array(11.7898261225516,33.817481,-118.039905);
+	mapData[58] = new Array(11.7473401244707,34.211171,-118.197763);
+	mapData[59] = new Array(11.7473401244707,34.186755,-118.301535);
+	mapData[60] = new Array(11.7473401244707,33.531938,-117.702503);
+	mapData[61] = new Array(11.6619037896906,34.232003,-118.247538);
+	mapData[62] = new Array(11.5758369027902,33.883314,-117.854467);
+	mapData[63] = new Array(11.4891252930761,33.921313,-118.408433);
+	mapData[64] = new Array(11.3578166916005,34.048207,-118.141611);
+	mapData[65] = new Array(11.1803398874989,34.140806,-118.001848);
+	mapData[66] = new Array(11,34.152476,-118.368419);
+	mapData[67] = new Array(10.9087121146357,34.481172,-118.428212);
+	mapData[68] = new Array(10.770329614269,34.110009,-117.719734);
+	mapData[69] = new Array(10.6770782520313,34.087108,-117.969662);
+	mapData[70] = new Array(10.6301458127346,33.923463,-117.895596);
+	mapData[71] = new Array(10.4880884817015,33.997179,-118.40145);
+	mapData[72] = new Array(10.4880884817015,34.090409,-118.127002);
+	mapData[73] = new Array(10.1980390271856,34.114041,-118.090351);
+	mapData[74] = new Array(10.0995049383621,34.277648,-118.500479);
+	mapData[75] = new Array(9.79795897113271,34.168206,-118.372461);
+	mapData[76] = new Array(9.79795897113271,34.068059,-117.93835);
+	mapData[77] = new Array(9.79795897113271,33.751418,-117.993929);
+	mapData[78] = new Array(9.53939201416946,34.119245,-117.854806);
+	mapData[79] = new Array(9.4339811320566,34.384663,-118.58704);
+	mapData[80] = new Array(9.21954445729289,33.794028,-118.07218);
+	mapData[81] = new Array(9.05538513813742,33.570763,-117.634634);
+	mapData[82] = new Array(9,34.424794,-118.44513);
+	mapData[83] = new Array(8.88819441731559,34.164806,-118.050907);
+	mapData[84] = new Array(8.48528137423857,33.934513,-117.951594);
+	mapData[85] = new Array(8.48528137423857,34.117047,-117.770978);
+	mapData[86] = new Array(8.42614977317636,33.891265,-118.297505);
+	mapData[87] = new Array(8.24621125123532,34.097708,-117.906982);
+	mapData[88] = new Array(8.18535277187245,33.890566,-118.236665);
+	mapData[89] = new Array(7.93725393319377,34.088808,-118.406125);
+	mapData[90] = new Array(7.93725393319377,33.720017,-118.046145);
+	mapData[91] = new Array(7.87400787401181,34.076642,-118.039429);
+	mapData[92] = new Array(7.87400787401181,33.785091,-117.84569);
+	mapData[93] = new Array(7.87400787401181,34.56548,-118.085497);
+	mapData[94] = new Array(7.74596669241483,33.797317,-118.300654);
+	mapData[95] = new Array(7.61577310586391,33.841014,-118.009694);
+	mapData[96] = new Array(7.61577310586391,34.103341,-117.818148);
+	mapData[97] = new Array(7.61577310586391,33.634821,-117.874539);
+	mapData[98] = new Array(7.61577310586391,33.531938,-117.702503);
+	mapData[99] = new Array(7.54983443527075,33.914614,-118.350922);
+	mapData[100] = new Array(7.54983443527075,34.101608,-118.056062);
+	mapData[101] = new Array(7.54983443527075,35.132673,-118.507819);
+	mapData[102] = new Array(7.48331477354788,33.650813,-117.817711);
+	mapData[103] = new Array(7.41619848709566,34.073759,-118.37376);
+	mapData[104] = new Array(7.41619848709566,34.126957,-118.052167);
+	mapData[105] = new Array(7.41619848709566,33.762117,-117.81828);
+	mapData[106] = new Array(7.34846922834953,33.535325,-117.77192);
+	mapData[107] = new Array(7.14142842854285,33.812662,-117.816238);
+	mapData[108] = new Array(7,34.101447,-118.599335);
+	mapData[109] = new Array(7,33.849327,-118.043951);
+	mapData[110] = new Array(7,33.933551,-118.068215);
+	mapData[111] = new Array(7,34.698696,-118.150158);
+	mapData[112] = new Array(6.92820323027551,33.934513,-117.951594);
+	mapData[113] = new Array(6.92820323027551,34.307877,-118.429048);
+	mapData[114] = new Array(6.85565460040104,34.128907,-117.903094);
+	mapData[115] = new Array(6.85565460040104,33.647028,-117.915061);
+	mapData[116] = new Array(6.78232998312527,34.089459,-118.328509);
+	mapData[117] = new Array(6.78232998312527,33.871214,-118.371778);
+	mapData[118] = new Array(6.78232998312527,34.377782,-118.514894);
+	mapData[119] = new Array(6.70820393249937,34.067409,-118.475284);
+	mapData[120] = new Array(6.70820393249937,34.198204,-118.602069);
+	mapData[121] = new Array(6.70820393249937,33.673468,-118.002432);
+	mapData[122] = new Array(6.6332495807108,33.761117,-118.129867);
+	mapData[123] = new Array(6.557438524302,34.018361,-117.854384);
+	mapData[124] = new Array(6.48074069840786,33.759283,-118.082396);
+	mapData[125] = new Array(6.40312423743285,34.045006,-118.445274);
+	mapData[126] = new Array(6.40312423743285,33.857416,-118.256334);
+	mapData[127] = new Array(6.40312423743285,34.137707,-117.965696);
+	mapData[128] = new Array(6.40312423743285,33.462927,-117.624147);
+	mapData[129] = new Array(6.40312423743285,33.888062,-117.80407);
+	mapData[130] = new Array(6.32455532033676,33.903164,-117.912242);
+	mapData[131] = new Array(6.2449979983984,33.793384,-118.31611);
+	mapData[132] = new Array(6.2449979983984,34.05051,-118.048349);
+	mapData[133] = new Array(6.16441400296898,33.666269,-117.969304);
+	mapData[134] = new Array(6.08276253029822,34.021611,-118.391688);
+	mapData[135] = new Array(5.91607978309962,33.475302,-117.703273);
+	mapData[136] = new Array(5.8309518948453,33.72975,-118.086304);
+	mapData[137] = new Array(5.8309518948453,34.261221,-118.318873);
+	mapData[138] = new Array(5.8309518948453,33.619221,-117.930873);
+	mapData[139] = new Array(5.74456264653803,34.090975,-118.381301);
+	mapData[140] = new Array(5.74456264653803,33.888165,-118.127604);
+	mapData[141] = new Array(5.74456264653803,34.276154,-118.545814);
+	mapData[142] = new Array(5.65685424949238,34.122058,-118.337905);
+	mapData[143] = new Array(5.65685424949238,34.176238,-118.619929);
+	mapData[144] = new Array(5.65685424949238,33.640223,-117.691086);
+	mapData[145] = new Array(5.65685424949238,33.725167,-118.005099);
+	mapData[146] = new Array(5.56776436283002,34.063209,-118.436432);
+	mapData[147] = new Array(5.56776436283002,33.997492,-118.15284);
+	mapData[148] = new Array(5.56776436283002,34.066009,-118.38271);
+	mapData[149] = new Array(5.56776436283002,33.840264,-118.355876);
+	mapData[150] = new Array(5.56776436283002,33.868314,-118.067547);
+	mapData[151] = new Array(5.56776436283002,34.089059,-118.095108);
+	mapData[152] = new Array(5.56776436283002,33.615462,-117.640939);
+	mapData[153] = new Array(5.47722557505166,33.888364,-118.353556);
+	mapData[154] = new Array(5.47722557505166,33.944264,-118.194903);
+	mapData[155] = new Array(5.47722557505166,33.659639,-117.739481);
+	mapData[156] = new Array(5.3851648071345,34.002011,-118.430833);
+	mapData[157] = new Array(5.3851648071345,34.151066,-118.089744);
+	mapData[158] = new Array(5.3851648071345,34.209407,-118.57735);
+	mapData[159] = new Array(5.19615242270663,34.254751,-118.424063);
+	mapData[160] = new Array(5.09901951359278,33.810848,-118.350962);
+	mapData[161] = new Array(5.09901951359278,34.224089,-118.375638);
+	mapData[162] = new Array(5.09901951359278,33.611272,-117.666817);
+	mapData[163] = new Array(5,34.098859,-118.327459);
+	mapData[164] = new Array(5,33.960041,-118.394908);
+	mapData[165] = new Array(5,34.036759,-118.501214);
+	mapData[166] = new Array(5,34.009276,-118.472869);
+	mapData[167] = new Array(4.79583152331272,34.211494,-118.231045);
+	mapData[168] = new Array(4.79583152331272,34.164255,-118.54472);
+	mapData[169] = new Array(4.69041575982343,33.955913,-118.358682);
+	mapData[170] = new Array(4.69041575982343,33.714889,-117.763304);
+	mapData[171] = new Array(4.69041575982343,33.581533,-117.724747);
+	mapData[172] = new Array(4.58257569495584,34.098908,-118.36241);
+	mapData[173] = new Array(4.58257569495584,34.060859,-118.40191);
+	mapData[174] = new Array(4.58257569495584,33.906914,-118.083398);
+	mapData[175] = new Array(4.58257569495584,33.857416,-118.256334);
+	mapData[176] = new Array(4.58257569495584,34.478797,-118.652559);
+	mapData[177] = new Array(4.58257569495584,34.029561,-117.939752);
+	mapData[178] = new Array(4.58257569495584,33.695576,-117.805881);
+	mapData[179] = new Array(4.58257569495584,33.680408,-117.825926);
+	mapData[180] = new Array(4.47213595499958,34.014212,-118.113588);
+	mapData[181] = new Array(4.47213595499958,34.152513,-118.463963);
+	mapData[182] = new Array(4.47213595499958,34.143856,-118.394293);
+	mapData[183] = new Array(4.47213595499958,33.858151,-117.738649);
+	mapData[184] = new Array(4.35889894354067,33.899265,-118.319006);
+	mapData[185] = new Array(4.35889894354067,34.256952,-118.284534);
+	mapData[186] = new Array(4.24264068711928,34.03457,-118.42843);
+	mapData[187] = new Array(4.24264068711928,33.972814,-118.17385);
+	mapData[188] = new Array(4.24264068711928,34.158214,-118.600619);
+	mapData[189] = new Array(4.24264068711928,34.201491,-118.493768);
+	mapData[190] = new Array(4.24264068711928,33.68762,-117.788527);
+	mapData[191] = new Array(4.12310562561766,34.07851,-118.265962);
+	mapData[192] = new Array(4.12310562561766,34.101007,-118.450773);
+	mapData[193] = new Array(4.12310562561766,33.784018,-118.258977);
+	mapData[194] = new Array(4.12310562561766,33.835465,-117.873629);
+	mapData[195] = new Array(4.12310562561766,33.874314,-117.963702);
+	mapData[196] = new Array(4,34.032159,-118.490229);
+	mapData[197] = new Array(4,33.899915,-118.162314);
+	mapData[198] = new Array(4,34.189605,-118.228573);
+	mapData[199] = new Array(4,34.406519,-118.562148);
+	mapData[200] = new Array(4,33.850515,-117.791132);
+	mapData[201] = new Array(4,33.811566,-117.829194);
+	mapData[202] = new Array(3.87298334620742,34.021611,-118.391688);
+	mapData[203] = new Array(3.87298334620742,34.026959,-118.474329);
+	mapData[204] = new Array(3.87298334620742,34.239503,-118.482245);
+	mapData[205] = new Array(3.87298334620742,34.478797,-118.652559);
+	mapData[206] = new Array(3.87298334620742,34.169663,-118.32364);
+	mapData[207] = new Array(3.87298334620742,34.208142,-118.401106);
+	mapData[208] = new Array(3.87298334620742,34.046889,-117.984644);
+	mapData[209] = new Array(3.87298334620742,34.066143,-118.084759);
+	mapData[210] = new Array(3.74165738677394,34.07036,-118.349261);
+	mapData[211] = new Array(3.74165738677394,33.743168,-117.635632);
+	mapData[212] = new Array(3.74165738677394,33.724167,-117.906231);
+	mapData[213] = new Array(3.74165738677394,33.786915,-117.982242);
+	mapData[214] = new Array(3.74165738677394,33.883223,-117.738568);
+	mapData[215] = new Array(3.60555127546399,34.111208,-118.288427);
+	mapData[216] = new Array(3.60555127546399,33.987463,-118.334007);
+	mapData[217] = new Array(3.60555127546399,33.957012,-118.441674);
+	mapData[218] = new Array(3.60555127546399,33.90213,-118.009663);
+	mapData[219] = new Array(3.60555127546399,33.769018,-118.192254);
+	mapData[220] = new Array(3.60555127546399,34.166567,-118.269943);
+	mapData[221] = new Array(3.60555127546399,34.138514,-118.243007);
+	mapData[222] = new Array(3.60555127546399,33.792687,-117.79975);
+	mapData[223] = new Array(3.60555127546399,34.606146,-118.184951);
+	mapData[224] = new Array(3.46410161513775,34.042912,-118.251931);
+	mapData[225] = new Array(3.46410161513775,33.870466,-118.288138);
+	mapData[226] = new Array(3.46410161513775,33.924642,-118.201862);
+	mapData[227] = new Array(3.46410161513775,33.851965,-118.1468);
+	mapData[228] = new Array(3.46410161513775,34.135259,-118.259483);
+	mapData[229] = new Array(3.46410161513775,34.478797,-118.652559);
+	mapData[230] = new Array(3.46410161513775,34.728857,-118.326834);
+	mapData[231] = new Array(3.3166247903554,34.07711,-118.307559);
+	mapData[232] = new Array(3.3166247903554,34.03056,-118.398043);
+	mapData[233] = new Array(3.3166247903554,34.05266,-118.38531);
+	mapData[234] = new Array(3.3166247903554,33.942289,-118.129019);
+	mapData[235] = new Array(3.3166247903554,33.989013,-118.089121);
+	mapData[236] = new Array(3.3166247903554,33.797317,-118.300654);
+	mapData[237] = new Array(3.3166247903554,34.177606,-118.309543);
+	mapData[238] = new Array(3.3166247903554,34.088771,-117.858176);
+	mapData[239] = new Array(3.3166247903554,34.06521,-117.779328);
+	mapData[240] = new Array(3.3166247903554,33.719118,-117.871438);
+	mapData[241] = new Array(3.3166247903554,33.739571,-117.786183);
+	mapData[242] = new Array(3.3166247903554,33.8318,-117.847394);
+	mapData[243] = new Array(3.3166247903554,34.497245,-118.189518);
+	mapData[244] = new Array(3.16227766016838,33.978404,-118.217736);
+	mapData[245] = new Array(3.16227766016838,33.810848,-118.350962);
+	mapData[246] = new Array(3.16227766016838,33.945413,-118.033622);
+	mapData[247] = new Array(3.16227766016838,33.865916,-118.183626);
+	mapData[248] = new Array(3.16227766016838,33.828366,-118.182351);
+	mapData[249] = new Array(3.16227766016838,34.142557,-118.127152);
+	mapData[250] = new Array(3.16227766016838,34.199704,-118.447243);
+	mapData[251] = new Array(3.16227766016838,34.153628,-118.43222);
+	mapData[252] = new Array(3.16227766016838,34.201254,-118.329935);
+	mapData[253] = new Array(3.16227766016838,34.080143,-117.738614);
+
+	function initialize() {
+	
+		var style = [
+			{
+				featureType: "road.highway",
+				elementType: "all",
+				stylers: [
+					{ visibility: 'off' }
+				]
+			},
+			{
+				featureType: "all",
+				elementType: "labels",
+				stylers: [
+					{ visibility: 'off' },
+					{ lightness: 10 }
+				]
+			}
+		];
+		var latlng = new google.maps.LatLng(33.88480, -118.089);
+		var myOptions = {
+			zoom: 12,
+			center: latlng,
+			mapTypeControlOptions: {
+				mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'NSF']
+			}
+		};
+		var map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+		var styledMapOptions = { name: "NSF" }
+		var jayzMapType = new google.maps.StyledMapType(style, styledMapOptions);
+		map.mapTypes.set('NSF', jayzMapType);
+		map.setMapTypeId('NSF');
+ 
+
+		var contentString="<div>RON</div>";		
+
+/*		for(i=0; i<25; i++) {
+			aX = Math.floor(Math.random()*25);
+			aY = Math.floor(Math.random()*25);
+			var flightPlanCoordinates = [
+				new google.maps.LatLng(mapData[aX][1], mapData[aX][2]),
+				new google.maps.LatLng(mapData[aY][1], mapData[aY][2]),
+			  ];
+			  var flightPath = new google.maps.Polyline({
+				path: flightPlanCoordinates,
+				strokeColor: "#cc3300",
+				strokeOpacity: 0.5,
+				strokeWeight: Math.floor(Math.random()*3)
+			  });
+			  flightPath.setMap(map);
+		}
+*/	
+		mode = 0
+		var marks = new Array();
+		
+		for(i=0; i<mapData.length; i++) {
+			var myLatlng = new google.maps.LatLng(mapData[i][1], mapData[i][2]);
+			if (mode==1) {
+				marks[i] = new google.maps.Circle({
+					center: myLatlng,
+					map: map,
+					radius: mapData[i][0]*100,
+					strokeColor: "#FFAA00",
+					strokeOpacity: 0.5,
+					fillColor: ((Math.random()<0.9)?"#FF3300":"#9900FF"),
+					fillOpacity: 0.8,
+				});
+			} else {
+				//21x34
+				fillColor = ((Math.random()<0.9)?"FF3300":"9900FF")
+				icon = new google.maps.MarkerImage(
+								"http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=|"+fillColor+"|FFFFFF",
+								null, null, null, new google.maps.Size(mapData[i][0]/25*21, mapData[i][0]/25*34));
+				marks[i] = new google.maps.Marker({
+					  position: myLatlng,
+					  map: map,
+					  icon: icon,
+					  shadow: "no",
+					  title: "Marker"+i,
+				  });		
+			}
+		}
+		for (var i = 0; i < marks.length; i++) { 
+			updateMarker(marks[i], i, map); 
+		} 
+	}
+	function updateMarker(marker, st, map) { 
+		google.maps.event.addListener(marker, "click", function() { 
+			//marks[0].setMap(null)
+			for(j=0; j<2; j++) {
+				aY = Math.floor(Math.random()*25);
+				var flightPlanCoordinates = [
+					new google.maps.LatLng(mapData[st][1], mapData[st][2]),
+					new google.maps.LatLng(mapData[aY][1], mapData[aY][2]),
+				  ];
+				  var flightPath = new google.maps.Polyline({
+					path: flightPlanCoordinates,
+					strokeColor: "#dd3300",
+					strokeOpacity: 0.5,
+					strokeWeight: 2
+				  });
+				  flightPath.setMap(map);
+			}
+		});		
+	} 
+
+</script>
+</head>
+<body onload="initialize()">
+	<div id="map_canvas" style="width: 100%; height:100%"></div>
+</body>
+</html>
