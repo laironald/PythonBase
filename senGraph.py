@@ -546,14 +546,25 @@ class senDBSQL:
                 CREATE INDEX mI ON omerge (Invnum_N);
                 """)
             self.sql.c.executemany("INSERT OR IGNORE INTO omerge VALUES (?)", vx)
-            self.sql.c.executescript("""
-                DROP TABLE IF EXISTS G0;
-                CREATE TEMP TABLE G0 AS
-                    SELECT  a.*, flag(a.Invnum_N) AS flag
-                      FROM  %s AS a
-                INNER JOIN  omerge AS b
-                        ON  a.Invnum_N=b.Invnum_N;
-                """ % self.table)
+            if where==None:
+                self.sql.c.executescript("""
+                    DROP TABLE IF EXISTS G0;
+                    CREATE TEMP TABLE G0 AS
+                        SELECT  a.*, flag(a.Invnum_N) AS flag
+                          FROM  %s AS a
+                    INNER JOIN  omerge AS b
+                            ON  a.Invnum_N=b.Invnum_N;
+                    """ % self.table)
+            else:
+                self.sql.c.executescript("""
+                    DROP TABLE IF EXISTS G0;
+                    CREATE TEMP TABLE G0 AS
+                        SELECT  a.*, flag(a.Invnum_N) AS flag
+                          FROM  {table} AS a
+                    INNER JOIN  omerge AS b
+                            ON  a.Invnum_N=b.Invnum_N
+                         WHERE  {where};
+                    """.format(table=self.table, where=where))
 
         elif where==None:
             self.sql.c.executescript("""
