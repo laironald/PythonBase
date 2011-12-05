@@ -43,6 +43,8 @@ def patSimple(patent):
 def pat8char(patent):
     patent = str(patent)    
     import re
+    if len(re.findall("[A-z0-9]", patent)) != len(patent) or len(patent) > 8:
+        return patent
     pat = re.sub("[^A-Za-z0-9]", "", patent)
     letters = re.findall("[A-Za-z]", pat)
     letters = "".join(letters)
