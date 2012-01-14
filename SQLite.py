@@ -104,7 +104,7 @@ class SQLite:
         """
         self.c.execute("vacuum")
         self.commit()
-    def csvInput(self, fname):
+    def csvInput(self, fname, retData=True):
         def decode(lst):
             import unicodedata
             try:
@@ -113,6 +113,7 @@ class SQLite:
                 print lst
                 return lst
         import csv
+        # this seems not totally efficient.. can probably create a buffer version
         f = open(fname, "rb")
         t = [decode(x) for x in csv.reader(f)]
         f.close()
@@ -180,7 +181,7 @@ class SQLite:
             return self.c.execute(query)
         
         
-    def addSQL(self, data, db=None, table=None, header=False, field=True, insert=""):
+    def addSQL(self, data, db=None, table=None, header=False, field=True, allVars=False, insert=""):
         """
         This serves three functions depending the type of data (flat CSV, pure data, existing table)
         If data is a link to a database -- load the data into CSV
@@ -193,6 +194,7 @@ class SQLite:
            - Insert data
 
         Field=True, defaults that field names must match 1-1
+        allVars => Make all variables VARCHARS (IGNORE BUILDING TYPE)
         """
         import types, os
         table = self.getTbl(table)
@@ -202,29 +204,34 @@ class SQLite:
 
         if strBool and os.path.exists(data):
             data = self.csvInput(data)
+            isFile = True
         if insert!="":
             insert = "OR %s" % insert
 
-        if strBool and self.tables(db=db, lookup=data):
-            if self.tables(db=db, lookup=table):
-                self.replicate(tableTo=table, table=data, db=db)
-            if field:
-                fieldTo = set(self.columns(table=table, output=False, lower=True))
-                fieldFr = set(self.columns(table=data, db=db, output=False, lower=True))
-                colList = ", ".join(list(fieldTo & fieldFr))
-                self.c.execute("INSERT %s INTO %s (%s) SELECT %s FROM %s%s" % (insert, table, colList, colList, dbAdd(db), data))
-            else:
-                self.c.execute("INSERT %s INTO %s SELECT * FROM %s%s" % (insert, table, dbAdd(db), data))
+        if not isFile:
+            if strBool and self.tables(db=db, lookup=data):
+                if self.tables(db=db, lookup=table):
+                    self.replicate(tableTo=table, table=data, db=db)
+                if field:
+                    fieldTo = set(self.columns(table=table, output=False, lower=True))
+                    fieldFr = set(self.columns(table=data, db=db, output=False, lower=True))
+                    colList = ", ".join(list(fieldTo & fieldFr))
+                    self.c.execute("INSERT %s INTO %s (%s) SELECT %s FROM %s%s" % (insert, table, colList, colList, dbAdd(db), data))
+                else:
+                    self.c.execute("INSERT %s INTO %s SELECT * FROM %s%s" % (insert, table, dbAdd(db), data))
 
         #if file exists, use quickSQL..        
         elif self.tables(db=db, lookup=table):
             #self.quickSQL(data, table=table, header=header)
             self.c.executemany("INSERT %s INTO %s VALUES (%s)" % (insert, table, ", ".join(["?"]*len(data[0]))), data[int(header):])
         else:
-            self.quickSQL(data, table=table, header=header)
+            self.quickSQL(data, table=table, header=header, allVars=allVars)
             #need to make this so the variables are more flexible
         self.conn.commit()
-    def quickSQL(self, data, table=None, override=False, header=False, typescan=50, typeList=[]):
+    def quickSQL(self, data, table=None, override=False, header=False, allVars=False, typescan=50, typeList=[]):
+        """
+            allVars => Make all variables VARCHARS (IGNORE BUILDING TYPE)
+        """
         import re, types
         table = self.getTbl(table)
         if override:
@@ -254,9 +261,15 @@ class SQLite:
                             else: least = 0; break
                     cType = {0:"VARCHAR", 1:"INTEGER", 2:"REAL"}[max(least-ints, 0)]
                 if header:
-                    tList.append("%s %s" % (headLst[i], cType))
+                    if allVars:
+                        tList.append("%s" % (headLst[i],))
+                    else:                    
+                        tList.append("%s %s" % (headLst[i], cType))
                 else:
-                    tList.append("v%d %s" % (i, cType))
+                    if allVars:
+                        tList.append("v%d" % (i,))
+                    else:                    
+                        tList.append("v%d %s" % (i, cType))
             else:
                 tList.extend([y for y in typeList if y.upper().find("%s " % data[0][i].upper())==0])
 
@@ -362,13 +375,21 @@ class SQLite:
         else:
             return idxLst[0]
         
-    def index(self, keys, index=None, table=None, db=None, unique=False):
+    def index(self, keys, index=None, table=None, db=None, unique=False, combo=False):
         """
         Hey Amy!  Look, documentation
         Index is for index name
 
         Indicates if Index is created with Index name or None
         """
+
+        import itertools
+
+        if combo:
+            for x in xrange(len(keys)):
+                for k in itertools.combinations(keys, x+1):
+                    self.index(k, index, table, db, unique)
+        
         import re
         table = self.getTbl(table)
         if index==None: 
@@ -378,10 +399,13 @@ class SQLite:
         #only create indexes if its necessary!  (it doens't already exist)
         idxA = self.baseIndex()
         idxSQL = "CREATE %sINDEX %s%s ON %s (%s)" % (unique and "UNIQUE " or "", dbAdd(db), index, table, ",".join(keys))
-        if self.baseIndex(idx=idxSQL, db=db) not in idxA:
-            self.c.execute(idxSQL)
-            return "%s%s" % (dbAdd(db), index)
-        else:
+        try:
+            if self.baseIndex(idx=idxSQL, db=db) not in idxA:
+                self.c.execute(idxSQL)
+                return "%s%s" % (dbAdd(db), index)
+            else:
+                return None
+        except:
             return None
 
     #----- MERGE -----#
