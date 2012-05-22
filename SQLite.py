@@ -51,7 +51,7 @@ class SQLite:
             PRAGMA cache_size=2000000;
             PRAGMA synchronous=OFF;
             PRAGMA temp_store=2;
-            """)
+            """) #"""
     def getTbl(self, table=None):
         if table==None:
             return self.tbl
@@ -296,7 +296,7 @@ class SQLite:
         self.c.executescript("""
             DROP TABLE IF EXISTS %s_backup;
             ALTER TABLE %s RENAME TO %s_backup;
-            """ % (table, table, table))
+            """ % (table, table, table)) #"""
         self.c.execute("CREATE TABLE %s (%s)" % (table, ", ".join([" ".join([x[1], x[2]]) for x in self.c.execute("PRAGMA TABLE_INFO(%s_backup)" % table) if x[1].lower() not in [y.lower() for y in keys]])))
         self.replicate(tableTo=table, table="%s_backup" % table)
         self.c.execute("INSERT INTO %s SELECT %s FROM %s_backup" % (table, cols, table))
@@ -333,7 +333,7 @@ class SQLite:
         sqls = self.c.execute("""
           SELECT  sql, name, type
             FROM  %ssqlite_master
-           WHERE  tbl_name='%s';""" % (dbAdd(db), table)).fetchall()
+           WHERE  tbl_name='%s';""" % (dbAdd(db), table)).fetchall() #"""
 
         idxC = 0
         idxA = self.baseIndex()
