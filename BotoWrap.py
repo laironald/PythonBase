@@ -135,7 +135,7 @@ class BotoWrap:
             if debug: print "[downloaded]",
         if debug: print ""
 
-    def downloadS3_path(self, dir="", bucket=None, **kwargs):
+    def downloadS3_path(self, dir="", bucket=None, path=None, **kwargs):
         """Downloads a path (and its contents) to S3
 
         Args:
@@ -148,9 +148,15 @@ class BotoWrap:
     
         cBucket = self.getBucket(bucket)
         for k in cBucket.get_all_keys(prefix=dir):
-            self.downloadS3(key=k.name, bucket=bucket, **kwargs)
+            key = k.name
+            #specified path allows a full path to not be generated
+            # ie. S3 boto/ron > path=boto > ron
+            if path:
+                key = re.sub("^"+path, "", key)
+                key = re.sub("^/", "", key)           
+            self.downloadS3(key=key, bucket=bucket, path=path, **kwargs)
 
-    def uploadS3(self, file, key=None, bucket=None, path=None,
+    def uploadS3(self, file, key=None, bucket=None, path=None, encrypt=False,
                  permission="authenticated-read", debug=False, override=False):
         """Upload a file from the local server to AWS
 
@@ -161,6 +167,7 @@ class BotoWrap:
             bucket: specified bucket name.
                 default: smetrics_default
             path: a location outside of the root directory
+            encrypt: do we encrypt the data? (AES-256)
             permission: sets the ACL
                 default: authenticated-read
                 other options: public-read, public-read-write, private
@@ -199,7 +206,7 @@ class BotoWrap:
             # if size or time parameters change or key doesn't exist
             if overrideIt(k):
                 k = bucket.new_key(key)
-                k.set_contents_from_filename(file)
+                k.set_contents_from_filename(file, encrypt_key=encrypt)
                 k.set_acl(permission)
                 if debug: print "[uploaded]",
         if debug: print ""
