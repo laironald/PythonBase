@@ -1,9 +1,3 @@
-def dbAdd(db):
-    """
-    I tire of this code...
-    """
-    return db!=None and "%s." % db or ""
-
 def MySQL_cfg(cfg=None, title=None):
     import os, getpass
     if title!=None:
@@ -18,135 +12,226 @@ def MySQL_cfg(cfg=None, title=None):
         cfg["passwd"] = getpass.getpass("passwd: ")
     if "db" not in cfg:
         cfg["db"] = raw_input("db: ")
-    #os.system('clear')
     return cfg
 
 
+
 class SQLite:
+    """ 
+    The following is a wrapper for sqlite3, a commonly used library for creating
+    transportable relational databases
+     * Syntax can be found @ http://www.sqlite.org
+     * Python documentation can be found @ http://docs.python.org/library/sqlite3.html
     """
-    The following extends sqlite3, a commonly used library for the Patent Team
-     - remember, in classes "self" refers to the class and is not really a paramater
-     - table is an optional parameter for many of these functions.
-       If the variable is not set, it defaults to the table set during initialization
-    """
-    def __init__(self, db=":memory:", tbl=None, table=None):
-        """
-        Initiate the database.
-        Specify the location of the database and the table.
-         - Automatically opens the connection
-         - tbl and table are the same!
-        """
-        if tbl==None and table==None:
-            tbl = "main"
-        else:
-            tbl = (tbl!=None) and tbl or table
-        self.tbl = tbl
-        self.db = db
-        self.open()
-    def optimize(self):
-        """
-        Some basic optimization stuff w/r http://web.utk.edu/~jplyon/sqlite/SQLite_optimization_FAQ.html
-        """
-        self.c.executescript("""
-            PRAGMA cache_size=2000000;
-            PRAGMA synchronous=OFF;
-            PRAGMA temp_store=2;
-            """) #"""
-    def getTbl(self, table=None):
-        if table==None:
-            return self.tbl
-        else:
-            return table
-    def chgTbl(self, table):
-        """
-        Not too complex.  Allows you to change the default table
-        """
-        self.tbl = table
-    def commit(self):
-        """
-        Simply because .conn.commit() is too much work for my simple mind.
-        This is often necessary after execute statements.
-        Commit the data into the table/database.
-        """
-        self.conn.commit()
-    def open(self):
-        """
-        Opens the connection.
+    def __init__(self, db=":memory:", tbl="main"):
+        """ 
+        Creates and opens a database connection for
+        "db" and default the table to "tbl"
+
+        Args:
+          db: the location of the database
+          tbl: the name of the primary table
+        Returns: Nothing
+          Sets self variables such as tbl, db, c (cursor), conn (connect)
         """
         import sqlite3
+        self.db = db
+        self.tbl = tbl
         self.conn = sqlite3.connect(self.db)
         self.c = self.conn.cursor()
-    def close(self):
+
+    def __del__(self):
+        """ 
+        Destructor running similar to a Garbage Collector
         """
-        Close the connection. (The database is locked as the sqlite3 API is used)
+        self.close()
+
+    #-------------------------------------HIDDEN METHODS
+
+    def _dbAdd(self, db=None, tbl=None):
+        """ 
+        IF db exists, db.tbl ELSE tbl
+        Args:
+          db: database name
+          tbl: table name
+        """
+        str = ""
+        if db:
+            str += (db+".")
+        str += (not tbl) and self.tbl or tbl
+        return str
+
+    def _decode(self, list):
+        """ 
+        TODO: Is this necessary?  What does this really do?
+        """
+        try:
+            return [x.decode("iso-8859-1") for x in list]
+        except:
+            return list
+
+    def _sqlmasterScan(self, var, type, lookup=None, db=None):
+        """ 
+        Returns a list of items that exist within the database.
+        *since SQLite is not case sensitive, lowercases everything
+
+        Arg
+          var: field to return
+          type: type in database such as table, index
+          db: consider a specific database?
+          lookup: are we considering a specific item?
+        Returns:
+          a list of names that exist within the database.
+          unless lookup specified: true or false
+        """
+        self.c.execute(""" 
+            SELECT {var} FROM {table} 
+             WHERE type='{type}' ORDER BY {var}
+            """.format(var=var, type=type,
+              table=self._dbAdd(db=db, tbl="sqlite_master"))) #"""
+        list = [x[0].lower() for x in self.c]
+        if not lookup:
+            return list
+        else:
+            return lookup.lower() in list
+
+    #-------------------------------------BASIC ACTIONS
+
+    def close(self):
+        """ 
+        Initiates a final commit (assumption, we want to commit data)
+        Closes the appropriate cursors and connections 
+        *chosen not to TEST this method
         """
         self.commit()
         self.c.close()
         self.conn.close()
-    def attach(self, database, name="db"):
+
+    def optimize(self):
+        """ 
+        Optimize based on guidance found on the following:
+          http://web.utk.edu/~jplyon/sqlite/SQLite_optimization_FAQ.html
+        *chosen not to TEST this method
         """
-        Attaches a database and defaults it as db.
+        self.c.executescript(""" 
+            PRAGMA cache_size=2000000;
+            PRAGMA synchronous=OFF;
+            PRAGMA temp_store=2;
+            """) #"""
+
+    def chgTbl(self, tbl):
+        """ 
+        Allows a user to change their default table
+        *chosen not to TEST this method
         """
-        try:
-            self.c.execute("ATTACH DATABASE '%s' AS %s" % (database, name))
-        except:
-            self.c.execute("DETACH DATABASE %s" % (name))
-            self.c.execute("ATTACH DATABASE '%s' AS %s" % (database, name))            
-    def detach(self, name="db"):
+        self.tbl = tbl
+
+    def commit(self):
+        """ 
+        Alias to self.conn.commit()
+        *chosen not to TEST this method
         """
-        Detaches a database (default, db).
-        """
-        self.c.execute("DETACH DATABASE %s" % (name))
-    def vacuum(self, name="db"):
-        """
-        Vacuum the database.
-        (When indices and table are added and dropped, the database stays the same size.)
+        self.conn.commit()
+
+    def vacuum(self):
+        """ 
+        Databases expand with records.  This command compresses them to their
+        smallest states.
+        *chosen not to TEST this method
         """
         self.c.execute("vacuum")
         self.commit()
-    def csvInput(self, fname, retData=True):
-        def decode(lst):
-            import unicodedata
-            try:
-                return [x.decode("iso-8859-1") for x in lst]
-            except:
-                print lst
-                return lst
-        import csv
-        # this seems not totally efficient.. can probably create a buffer version
-        f = open(fname, "rb")
-        t = [decode(x) for x in csv.reader(f)]
-        f.close()
-        return t
-    def tables(self, lookup=None, db=None):
-        """
-        Returns a list of table names that exist within the database.
-        If lookup is specified, does that table exist within the list of tables?
-        """
-        retList = [x[0].lower() for x in self.c.execute("SELECT tbl_name FROM %ssqlite_master WHERE type='table' ORDER BY tbl_name" % dbAdd(db))]
-        if lookup==None:
-            return retList
-        else:
-            return lookup.lower() in retList
-    def indexes(self, lookup=None, db=None, search=None):
-        """
-        Returns a list of index names that exist within the database
-        If lookup is specified, does that index exist within the list of indexes?
-        If search is specified, returns a list of indices that match the criteria
-        """
-        import re
-        retList = [x[0].lower() for x in self.c.execute("SELECT name FROM %ssqlite_master WHERE type='index' ORDER BY name" % dbAdd(db))]
 
-        if search!=None: #returns a range of numbers related to the search term
-            nums = [(lambda x:len(x)>0 and int(x[0]) or 1)(re.findall('[0-9]+', x)) for x in retList if x.find(search)>=0]
-            if len(nums)==0:
+    #-------------------------------------STATS LIKE
+
+    def tables(self, lookup=None, db=None):
+        #returns a list of tables or existence of a table
+        return self._sqlmasterScan(var="tbl_name", 
+            type="table", lookup=lookup, db=db)
+
+    def indexes(self, lookup=None, db=None, seq=None):
+        """ 
+        Returns a list of indexes that exist within the database.
+        *since SQLite is not case sensitive, lowercases everything
+
+        Arg
+          db: consider a specific database?
+          lookup: are we considering a specific index?
+          seq: returns a range of indexes for numbering purposes
+        Returns:
+          a list of index names that exist within the database.
+          unless lookup specified: true or false
+        """
+        list = self._sqlmasterScan(var="name", 
+            type="index", lookup=lookup, db=db)
+       
+        import re
+        if seq and not lookup:
+            nums = []
+            for x in list:
+                if x.find(seq)==0:
+                    d = re.findall('[0-9]+$', x)
+                    if not d:
+                        nums.append(1)
+                    else:
+                        nums.append(int(d[-1]))
+            if not nums:
                 return [0, 0]
             else:
                 return [min(nums), max(nums)]
-        elif lookup!=None:
-            return lookup.lower() in retList
         else:
-            return retList
+            return list
+
+    #-------------------------------------NEW DATABASES
+
+    def attach(self, db, name="db"):
+        """ 
+        Attaches the "db" database as "name"
+
+        Args:
+          db: path or SQLite of database to attach
+            *if SQLite, defaults to its path
+          name: the alias of the database
+
+        *chosen not to TEST this method
+        """
+        if db.__class__.__name__ == 'SQLite':
+            db = db.db
+        self.detach(name=name)
+        self.c.execute("ATTACH DATABASE '{db}' AS {name}".format(db=db, name=name))
+
+    def detach(self, name="db"):
+        """ 
+        Detaches the database "name"
+        *chosen not to TEST this method
+        """
+        try:
+            self.c.execute("DETACH DATABASE {name}".format(name=name))
+        except:
+            pass
+
+    #-------------------------------------INPUT
+
+    def csvInput(self, file, iterator=True, **kwargs):
+        """ 
+        Takes a CSV like file and processes into a iterator or list
+
+        Args:
+          file: 
+          iterator: return a list or return an iterator?
+          decode: 
+          **kwargs are mostly for the CSV parser
+            http://docs.python.org/library/csv.html
+        Return: This is based on the iterator. 
+        """
+        import csv
+        f = open(file, "rb")
+        if iterator:
+            return csv.reader(f, **kwargs)
+        else:
+            return [x for x in csv.reader(f, **kwargs)]
+
+    # STOPPED AT THIS POINT
         
     def count(self, table=None):
         """
@@ -154,7 +239,8 @@ class SQLite:
         And for kicks- why not throw in the current time.
         """
         import datetime
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if self.tables(lookup=table):
             cnt = self.c.execute("SELECT count(*) FROM %s" % table).fetchone()[0]
             print datetime.datetime.now(), cnt
@@ -168,7 +254,8 @@ class SQLite:
         associated with a SQLite table
         """
         import re
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         field = (field==None) and "*" or ", ".join(field)
         more = "%s %s" % (random and "ORDER BY random()" or " ",
                           (limit==None) and " " or ("LIMIT %s" % limit))
@@ -197,7 +284,8 @@ class SQLite:
         allVars => Make all variables VARCHARS (IGNORE BUILDING TYPE)
         """
         import types, os
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         isFile = False
 
         strBool = (type(data)==types.StringType or type(data)==types.UnicodeType)
@@ -216,9 +304,9 @@ class SQLite:
                     fieldTo = set(self.columns(table=table, output=False, lower=True))
                     fieldFr = set(self.columns(table=data, db=db, output=False, lower=True))
                     colList = ", ".join(list(fieldTo & fieldFr))
-                    self.c.execute("INSERT %s INTO %s (%s) SELECT %s FROM %s%s" % (insert, table, colList, colList, dbAdd(db), data))
+                    self.c.execute("INSERT %s INTO %s (%s) SELECT %s FROM %s" % (insert, table, colList, colList, self._dbAdd(db=db, tbl=data)))
                 else:
-                    self.c.execute("INSERT %s INTO %s SELECT * FROM %s%s" % (insert, table, dbAdd(db), data))
+                    self.c.execute("INSERT %s INTO %s SELECT * FROM %s" % (insert, table, self._dbAdd(db=db, tbl=data)))
 
         #if file exists, use quickSQL..        
         elif self.tables(db=db, lookup=table):
@@ -233,7 +321,8 @@ class SQLite:
             allVars => Make all variables VARCHARS (IGNORE BUILDING TYPE)
         """
         import re, types
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if override:
             self.c.execute("DROP TABLE IF EXISTS %s" % table)
         elif self.tables(db=None, lookup=table):
@@ -281,15 +370,17 @@ class SQLite:
             self.c.executemany("INSERT INTO %s VALUES (%s)" % (table, ", ".join(["?"]*len(data[0]))), data[1:])
         self.conn.commit()            
     def columns(self, table=None, output=True, db=None, lower=False):
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if output:
-            for x in self.c.execute("PRAGMA %sTABLE_INFO(%s)" % (dbAdd(db), table)):
+            for x in self.c.execute("PRAGMA %s" % (self._dbAdd(db=db, tbl="TABLE_INFO("+table+")"))):
                 print x
         else:
-            return [lower and x[1].lower() or x[1] for x in self.c.execute("PRAGMA %sTABLE_INFO(%s)" % (dbAdd(db), table)).fetchall()]
+            return [lower and x[1].lower() or x[1] for x in self.c.execute("PRAGMA %s" % (self._dbAdd(db=db, tbl="TABLE_INFO("+table+")"))).fetchall()]
     def drop(self, keys, table=None): #drop columns -- doesn't exist so lame!
         import types
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if type(keys)!=types.ListType:
             keys = [keys]
         cols = ", ".join([x for x in self.columns(output=False) if x.lower() not in [y.lower() for y in keys]])
@@ -304,7 +395,8 @@ class SQLite:
 
     def add(self, key, typ="", table=None):
         import types
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if type(key) != types.ListType:
             key = [key]
         for k in key:
@@ -314,7 +406,8 @@ class SQLite:
                 pass
     
     def delete(self, table=None): #delete table
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         self.c.execute("DROP TABLE IF EXISTS %s" % table)
         self.conn.commit()
     def replicate(self, tableTo=None, table=None, db=None):
@@ -323,21 +416,20 @@ class SQLite:
         """
         import re
         #replicate the structure of a table
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if db==None:
             if tableTo==None: #THIS ALLOWS US TO AUTOMATICALLY ADD TABLES
                 tableTo = [(lambda x:len(x)>0 and int(x[0]) or 1)(re.findall('[0-9]+', x)) for x in self.tables() if x.find(table.lower())>=0]
                 tableTo = len(tableTo)==0 and table or "%s%d" % (table, max(tableTo)+1)
         else:
             tableTo = table
-        sqls = self.c.execute("""
-          SELECT  sql, name, type
-            FROM  %ssqlite_master
-           WHERE  tbl_name='%s';""" % (dbAdd(db), table)).fetchall() #"""
+        sqls = self.c.execute("SELECT sql, name, type FROM {table} WHERE tbl_name='{filter}';".\
+            format(table=self._dbAdd(db=db, tbl="sqlite_master"), filter=table)).fetchall()
 
         idxC = 0
         idxA = self.baseIndex()
-        idxR = self.indexes(search='idx_idx')
+        idxR = self.indexes(seq='idx_idx')
         def cleanTbl(wrd):
             wrd = re.sub(re.compile('create table ["\']?%s["\']?' % table, re.I), 'create table %s' % tableTo, wrd)
             return wrd
@@ -363,7 +455,7 @@ class SQLite:
         """
         import re
         if idx==None:
-            sqls = self.c.execute("SELECT sql FROM %ssqlite_master WHERE type='index';" % (dbAdd(db))).fetchall()
+            sqls = self.c.execute("SELECT sql FROM %s WHERE type='index';" % (self._dbAdd(db=db, tbl="sqlite_master"))).fetchall()
         else:
             sqls = [[idx,]]
         #simplify the list
@@ -391,18 +483,19 @@ class SQLite:
                     self.index(k, index, table, db, unique)
         
         import re
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if index==None: 
             index = [(lambda x:len(x)>0 and int(x[0]) or 1)(re.findall('[0-9]+', x)) for x in self.indexes(db=db) if x.find('idx_idx')>=0]
             index = len(index)==0 and "idx_idx" or "idx_idx%d" % (max(index)+1)
 
         #only create indexes if its necessary!  (it doens't already exist)
         idxA = self.baseIndex()
-        idxSQL = "CREATE %sINDEX %s%s ON %s (%s)" % (unique and "UNIQUE " or "", dbAdd(db), index, table, ",".join(keys))
+        idxSQL = "CREATE %sINDEX %s ON %s (%s)" % (unique and "UNIQUE " or "", self._dbAdd(db=db, tbl=index), table, ",".join(keys))
         try:
             if self.baseIndex(idx=idxSQL, db=db) not in idxA:
                 self.c.execute(idxSQL)
-                return "%s%s" % (dbAdd(db), index)
+                return self._dbAdd(db=db, tbl=index)
             else:
                 return None
         except:
@@ -433,7 +526,8 @@ class SQLite:
                            ON a.ron=b.ron AND a.ron1=b.amy").fetchall())       
         """
         import types, datetime
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         key = [type(x)==types.StringType and [x,x] or x for x in key]
         on = [type(x)==types.StringType and [x,x] or x for x in on]
 
@@ -450,17 +544,13 @@ class SQLite:
             DROP TABLE IF EXISTS TblA;
             DROP TABLE IF EXISTS TblB;
             CREATE TEMPORARY TABLE TblA AS SELECT %s FROM %s GROUP BY %s;
-            CREATE TEMPORARY TABLE TblB AS SELECT %s, %s FROM %s%s GROUP BY %s;
+            CREATE TEMPORARY TABLE TblB AS SELECT %s, %s FROM %s GROUP BY %s;
             """ % (huggleMe(on), table, huggleMe(on),
-                   huggleMe(key, idx=1), huggleMe(on, idx=1), dbAdd(db), tableFrom, huggleMe(on, idx=1)))
+                   huggleMe(key, idx=1), huggleMe(on, idx=1), self._dbAdd(db=db, table=tableFrom), huggleMe(on, idx=1))) #"""
         self.index(keys=[x[0] for x in on], table="TblA", index='idx_temp_TblA')
         self.index(keys=[x[1] for x in on], table="TblB", index='idx_temp_TblB')
         
         sqlS = "UPDATE %s SET %s WHERE %s" % (table, huggleMe(key, tail="=?"), huggleMe(on, tail="=?", inner=" AND "))
-##        sqlV = "SELECT %s, %s FROM %s AS a INNER JOIN %s%s AS b ON %s" % (
-##            huggleMe(key, idx=1, head="b."), huggleMe(on, idx=1, head="b."),
-##            table, dbAdd(db), tableFrom,
-##            " AND ".join(["a."+"=b.".join(x) for x in on]))
         sqlV = "SELECT %s, %s FROM TblA AS a INNER JOIN TblB AS b ON %s" % (
             huggleMe(key, idx=1, head="b."), huggleMe(on, idx=1, head="b."),
             " AND ".join(["a."+"=b.".join(x) for x in on]))
@@ -484,7 +574,8 @@ class SQLite:
             return [unicodedata.normalize('NFKD', unicode(x)).encode('ascii', 'ignore') for x in val]
 
         import csv
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         f = open(fname, "wb")
         writer = csv.writer(f, lineterminator="\n")
         writer.writerows([self.columns(table, output=False)])
@@ -513,7 +604,8 @@ class SQLite:
         cfg = MySQL_cfg(cfg)
         
         import MySQLdb, re, types, unicodedata, sys, datetime
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         if tableTo == None:
             tableTo = table
         def field(name, type):
@@ -601,7 +693,8 @@ class SQLite:
                  va=", Lastname||', '||Firstname AS Name, City||'-'||State||'-'||Country AS Loc, Assignee, AsgNum",
                  ea=", a.AppYear AS AppYear", eg=', a.AppYear'):
         import math, datetime, senGraph
-        table = self.getTbl(table)
+        if not table:
+            table = self.tbl
         tab = senGraph.senTab()
         self.c.executescript("""
             DROP TABLE IF EXISTS G0;
