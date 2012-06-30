@@ -1,3 +1,11 @@
+""" 
+ 2012/06/28:
+  * DB and TBL/TABLE variables represent DB and TBL options
+  * Added underscore functions
+  * Add a debug option?
+
+"""
+
 def MySQL_cfg(cfg=None, title=None):
     import os, getpass
     if title!=None:
@@ -22,23 +30,28 @@ class SQLite:
     transportable relational databases
      * Syntax can be found @ http://www.sqlite.org
      * Python documentation can be found @ http://docs.python.org/library/sqlite3.html
+     * Can pass db, tbl to most parameters with **kwargs
     """
-    def __init__(self, db=":memory:", tbl="main"):
+    def __init__(self, path=":memory:", db=None, tbl="main", output=False):
         """ 
         Creates and opens a database connection for
-        "db" and default the table to "tbl"
+        "path" and default the table to "tbl"
 
         Args:
-          db: the location of the database
+          path: the location of the database
+          db: the location of the database **legacy
           tbl: the name of the primary table
         Returns: Nothing
-          Sets self variables such as tbl, db, c (cursor), conn (connect)
+          Sets self variables such as tbl, path, c (cursor), conn (connect)
         """
         import sqlite3
-        self.db = db
+        self.path = path
+        if db:
+            self.path = db
         self.tbl = tbl
-        self.conn = sqlite3.connect(self.db)
+        self.conn = sqlite3.connect(self.path)
         self.c = self.conn.cursor()
+        self.output = output
 
     def __del__(self):
         """ 
@@ -48,17 +61,47 @@ class SQLite:
 
     #-------------------------------------HIDDEN METHODS
 
-    def _dbAdd(self, db=None, tbl=None):
+    def _getSelf(self, fields=None, **kwargs):
+        """ 
+        GETS basic SELF defined variables (ie. self.tbl)
+
+        Args:
+          fields: specified files to return
+          **kwargs: keyword arguments related self. variables
+        Return:
+          returns variables in sequence provided
+        *NOTE: self.__dict__ returns a list of 
+               avaiable SELF defined variables
+        """
+        list = []
+        alias = {"table": "tbl", "tbl": "table"}
+        if not fields:
+            fields = kwargs.keys()
+
+        for key in sorted(fields):
+            if key in alias and alias[key] in kwargs:
+                value = kwargs[alias[key]]
+            elif key not in kwargs:
+                value = None
+            else:
+                value = kwargs[key]
+            if not value:
+                if key in self.__dict__:
+                    value = self.__dict__[key]
+                elif key in alias and alias[key] in self.__dict__:
+                    value = self.__dict__[alias[key]]
+            list.append(value)
+        return list
+
+    def _dbAdd(self, **kwargs):
         """ 
         IF db exists, db.tbl ELSE tbl
-        Args:
-          db: database name
-          tbl: table name
         """
+        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
         str = ""
         if db:
             str += (db+".")
-        str += (not tbl) and self.tbl or tbl
+        str += tbl
         return str
 
     def _decode(self, list):
@@ -70,7 +113,7 @@ class SQLite:
         except:
             return list
 
-    def _sqlmasterScan(self, var, type, lookup=None, db=None):
+    def _sqlmasterScan(self, var, type, lookup=None, db=None, seq=None):
         """ 
         Returns a list of items that exist within the database.
         *since SQLite is not case sensitive, lowercases everything
@@ -80,6 +123,7 @@ class SQLite:
           type: type in database such as table, index
           db: consider a specific database?
           lookup: are we considering a specific item?
+          seq: returns a range of indexes for numbering purposes
         Returns:
           a list of names that exist within the database.
           unless lookup specified: true or false
@@ -90,12 +134,26 @@ class SQLite:
             """.format(var=var, type=type,
               table=self._dbAdd(db=db, tbl="sqlite_master"))) #"""
         list = [x[0].lower() for x in self.c]
-        if not lookup:
+        if seq:
+            import re
+            nums = []
+            for x in list:
+                if x.find(seq)==0:
+                    d = re.findall('[0-9]+$', x)
+                    if not d:
+                        nums.append(1)
+                    else:
+                        nums.append(int(d[-1]))
+            if not nums:
+                return [0, 0]
+            else:
+                return [min(nums), max(nums)]
+        elif not lookup:
             return list
         else:
             return lookup.lower() in list
 
-    #-------------------------------------BASIC ACTIONS
+    #-------------------------------------BACKGROUND FX
 
     def close(self):
         """ 
@@ -142,47 +200,135 @@ class SQLite:
         self.c.execute("vacuum")
         self.commit()
 
+    #-------------------------------------TABLE MANIPULATION
+
+    def add(self, key, typ="", **kwargs):
+        if not table:
+            table = self.tbl
+        if type(key).__name__ in ('tuple', 'list'):
+            key = [key]
+        for k in key:
+            if not self.columns(lower=True, lookup=k, **kwargs):
+                self.c.execute("""
+                    ALTER TABLE {table} ADD COLUMN {col} {typ}
+                    """.format(table=table, col=k, typ=typ)) #"""
+    
+    def drop(self, keys, table=None): #drop columns -- doesn't exist so lame!
+        import types
+        if not table:
+            table = self.tbl
+        if type(keys)!=types.ListType:
+            keys = [keys]
+        cols = ", ".join([x for x in self.columns(output=False) if x.lower() not in [y.lower() for y in keys]])
+        self.c.executescript("""
+            DROP TABLE IF EXISTS %s_backup;
+            ALTER TABLE %s RENAME TO %s_backup;
+            """ % (table, table, table)) #"""
+        self.c.execute("CREATE TABLE %s (%s)" % (table, ", ".join([" ".join([x[1], x[2]]) for x in self.c.execute("PRAGMA TABLE_INFO(%s_backup)" % table) if x[1].lower() not in [y.lower() for y in keys]])))
+        self.replicate(tableTo=table, table="%s_backup" % table)
+        self.c.execute("INSERT INTO %s SELECT %s FROM %s_backup" % (table, cols, table))
+        self.c.execute("DROP TABLE %s_backup" % (table))
+
+    def delete(self, table=None): #delete table
+        if not table:
+            table = self.tbl
+        self.c.execute("DROP TABLE IF EXISTS %s" % table)
+        self.conn.commit()
+
     #-------------------------------------STATS LIKE
 
-    def tables(self, lookup=None, db=None):
+    def tables(self, lookup=None, db=None, seq=None):
         #returns a list of tables or existence of a table
         return self._sqlmasterScan(var="tbl_name", 
-            type="table", lookup=lookup, db=db)
+            type="table", lookup=lookup, db=db, seq=seq)
 
     def indexes(self, lookup=None, db=None, seq=None):
-        """ 
-        Returns a list of indexes that exist within the database.
-        *since SQLite is not case sensitive, lowercases everything
+        #returns a list of indexes or existence of a index
+        return self._sqlmasterScan(var="name", 
+            type="index", lookup=lookup, db=db, seq=seq)
 
-        Arg
-          db: consider a specific database?
-          lookup: are we considering a specific index?
-          seq: returns a range of indexes for numbering purposes
-        Returns:
-          a list of index names that exist within the database.
-          unless lookup specified: true or false
-        """
-        list = self._sqlmasterScan(var="name", 
-            type="index", lookup=lookup, db=db)
+    #-------------------------------------REPORTS
        
-        import re
-        if seq and not lookup:
-            nums = []
-            for x in list:
-                if x.find(seq)==0:
-                    d = re.findall('[0-9]+$', x)
-                    if not d:
-                        nums.append(1)
-                    else:
-                        nums.append(int(d[-1]))
-            if not nums:
-                return [0, 0]
+    def columns(self, lower=False, lookup=None, **kwargs):
+        """ 
+        Basic report that showcases columns
+
+        Args:
+          lower: lowercase the column names
+          lookup: find a column within the columns
+        Return:
+          returns a list of columns or existence of column
+        """
+        db, output, tbl = self._getSelf(
+            fields=["db", "tbl", "output"], **kwargs)
+        self.c.execute("PRAGMA %s" % (
+           self._dbAdd(db=db, tbl="TABLE_INFO("+tbl+")")))
+        list = []
+        for row in self.c:
+            if output and not lookup: print row
+            if lower:
+                list.append(row[1].lower())
             else:
-                return [min(nums), max(nums)]
+                list.append(row[1])
+        if lookup:
+            return lookup in list
         else:
             return list
 
-    #-------------------------------------NEW DATABASES
+    def count(self, **kwargs):
+        """ 
+        Basic report with time and date
+
+        Args:
+          default is time stamp and count (if output on)
+        Return:
+          returns the number of records for the table
+        """
+        import datetime
+        db, output, tbl = self._getSelf(
+            fields=["db", "tbl", "output"], **kwargs)
+        if self.tables(lookup=tbl, db=db):
+            cnt = self.c.execute("SELECT count(*) FROM {table}".\
+                format(table=self._dbAdd(db=db, tbl=tbl))).fetchone()[0]
+        else:
+            cnt = 0
+        if output:
+            print datetime.datetime.now(), cnt
+        return cnt
+
+    #-------------------------------------ANALYSIS
+
+    def fetch(self, fields="*", random=False, 
+              limit=None, iterator=False, **kwargs):
+        """ 
+        Replicates common function where you return an array of values
+        associated with a SQLite table
+
+        Args:
+          field: specific fields?
+          limit: return a specific length of items?
+          random: return data in a random sequence?
+        Return: This is based on the iterator. 
+        """
+        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
+        if type(fields).__name__ in ("list", "tuple"):
+            fields = ",".join(fields)
+ 
+        query = ["SELECT", fields, "FROM", self._dbAdd(db=db, tbl=tbl)]
+        if random:
+            query.append("ORDER BY random()")
+        if limit:
+            query.extend(["LIMIT", str(limit)])
+        query = " ".join(query)
+        
+        if not self.tables(lookup=tbl, db=db):
+            return []
+        elif iterator:
+            return self.c.execute(query)
+        else:
+            return self.c.execute(query).fetchall()
+
+    #-------------------------------------DATABASE MGMT
 
     def attach(self, db, name="db"):
         """ 
@@ -196,7 +342,7 @@ class SQLite:
         *chosen not to TEST this method
         """
         if db.__class__.__name__ == 'SQLite':
-            db = db.db
+            db = db.path
         self.detach(name=name)
         self.c.execute("ATTACH DATABASE '{db}' AS {name}".format(db=db, name=name))
 
@@ -212,61 +358,26 @@ class SQLite:
 
     #-------------------------------------INPUT
 
-    def csvInput(self, file, iterator=True, **kwargs):
+    def csvInput(self, path, iterator=False, **kwargs):
         """ 
         Takes a CSV like file and processes into a iterator or list
 
         Args:
-          file: 
+          file: self evident
           iterator: return a list or return an iterator?
-          decode: 
           **kwargs are mostly for the CSV parser
             http://docs.python.org/library/csv.html
+            can do things like delimiter
         Return: This is based on the iterator. 
         """
         import csv
-        f = open(file, "rb")
+        file = open(path, "rb")
         if iterator:
-            return csv.reader(f, **kwargs)
+            return csv.reader(file, **kwargs)
         else:
-            return [x for x in csv.reader(f, **kwargs)]
+            return [x for x in csv.reader(file, **kwargs)]
 
     # STOPPED AT THIS POINT
-        
-    def count(self, table=None):
-        """
-        I like these basic reports where I am curious about the size of the default table.
-        And for kicks- why not throw in the current time.
-        """
-        import datetime
-        if not table:
-            table = self.tbl
-        if self.tables(lookup=table):
-            cnt = self.c.execute("SELECT count(*) FROM %s" % table).fetchone()[0]
-            print datetime.datetime.now(), cnt
-            return cnt
-        else:
-            print datetime.datetime.now()
-            return 0
-    def fetch(self, table=None, field=None, limit=None, random=False, fetch=True):
-        """
-        This replicates the common function where you return an array of values
-        associated with a SQLite table
-        """
-        import re
-        if not table:
-            table = self.tbl
-        field = (field==None) and "*" or ", ".join(field)
-        more = "%s %s" % (random and "ORDER BY random()" or " ",
-                          (limit==None) and " " or ("LIMIT %s" % limit))
-            
-        query = "SELECT {field} FROM {table} {more}".format(field=field, table=table, more=more)
-        query = re.sub("  +", " ", query).strip()
-        if fetch:
-            return self.c.execute(query).fetchall()
-        else:
-            return self.c.execute(query)
-        
         
     def addSQL(self, data, db=None, table=None, header=False, field=True, allVars=False, insert=""):
         """
@@ -316,6 +427,7 @@ class SQLite:
             self.quickSQL(data, table=table, header=header, allVars=allVars)
             #need to make this so the variables are more flexible
         self.conn.commit()
+
     def quickSQL(self, data, table=None, override=False, header=False, allVars=False, typescan=50, typeList=[]):
         """
             allVars => Make all variables VARCHARS (IGNORE BUILDING TYPE)
@@ -369,47 +481,7 @@ class SQLite:
         else:
             self.c.executemany("INSERT INTO %s VALUES (%s)" % (table, ", ".join(["?"]*len(data[0]))), data[1:])
         self.conn.commit()            
-    def columns(self, table=None, output=True, db=None, lower=False):
-        if not table:
-            table = self.tbl
-        if output:
-            for x in self.c.execute("PRAGMA %s" % (self._dbAdd(db=db, tbl="TABLE_INFO("+table+")"))):
-                print x
-        else:
-            return [lower and x[1].lower() or x[1] for x in self.c.execute("PRAGMA %s" % (self._dbAdd(db=db, tbl="TABLE_INFO("+table+")"))).fetchall()]
-    def drop(self, keys, table=None): #drop columns -- doesn't exist so lame!
-        import types
-        if not table:
-            table = self.tbl
-        if type(keys)!=types.ListType:
-            keys = [keys]
-        cols = ", ".join([x for x in self.columns(output=False) if x.lower() not in [y.lower() for y in keys]])
-        self.c.executescript("""
-            DROP TABLE IF EXISTS %s_backup;
-            ALTER TABLE %s RENAME TO %s_backup;
-            """ % (table, table, table)) #"""
-        self.c.execute("CREATE TABLE %s (%s)" % (table, ", ".join([" ".join([x[1], x[2]]) for x in self.c.execute("PRAGMA TABLE_INFO(%s_backup)" % table) if x[1].lower() not in [y.lower() for y in keys]])))
-        self.replicate(tableTo=table, table="%s_backup" % table)
-        self.c.execute("INSERT INTO %s SELECT %s FROM %s_backup" % (table, cols, table))
-        self.c.execute("DROP TABLE %s_backup" % (table))
 
-    def add(self, key, typ="", table=None):
-        import types
-        if not table:
-            table = self.tbl
-        if type(key) != types.ListType:
-            key = [key]
-        for k in key:
-            try:
-                self.c.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, k, typ))
-            except:
-                pass
-    
-    def delete(self, table=None): #delete table
-        if not table:
-            table = self.tbl
-        self.c.execute("DROP TABLE IF EXISTS %s" % table)
-        self.conn.commit()
     def replicate(self, tableTo=None, table=None, db=None):
         """
         Replicates the basic structure of another table
