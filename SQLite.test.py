@@ -49,6 +49,7 @@ class TestSQLite(unittest.TestCase):
         self.removeFile("test.csv")
         self.removeFile("test2.db")
         self.removeFile("test2.csv")
+        self.removeFile("errlog")
 
     def test___init__(self):
         s = SQLite.SQLite()
@@ -212,6 +213,7 @@ class TestSQLite(unittest.TestCase):
         self.s.insert([['a','c'],['Z','Z']], header=True)
         self.s.insert([['a','c'],['Z','Z']], tbl="foo", header=True)
         self.s.insert([['a','c'],['Z','Z']], tbl="bar")
+        self.s.insert([['Z','Z','Z']], tbl="bar", errlog="err")
 
         self.assertIn((99,99,99), self.s.fetch())
         self.assertIn((1,None,None), self.s.fetch())

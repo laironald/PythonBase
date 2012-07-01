@@ -653,7 +653,10 @@ class SQLite:
                 except:
                     if errlog:
                         err.write(sql)
+                        err.write("\n")
                         err.write(", ".join(d))
+                        err.write("\n")
+                        err.write("--------------")
                         err.write("\n")
 
 
