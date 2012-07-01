@@ -219,9 +219,11 @@ class SQLite:
         Closes the appropriate cursors and connections 
         *chosen not to TEST this method
         """
-        self.commit()
-        self.c.close()
-        self.conn.close()
+        if self.c:
+            self.commit()
+            self.c.close()
+            self.conn.close()
+            self.c = None
 
     def optimize(self):
         """ 
@@ -639,7 +641,16 @@ class SQLite:
                         """.format(tbl=tbl, schema=schema)) #"""
 
                 sql = " ".join(sql)
-                self.c.execute(sql, d)
+                try:
+                    self.c.execute(sql, d)
+                #build in error handling for unicode?
+                except:
+                    if "err_file" in kwargs:
+                        er = open("err_file", "wb")
+                        er.write(sql)
+                        er.write(", ".join(d))
+                        er.write("\n")
+
 
     def addSQL(self, data, header=False, field=None, ignore=True, **kwargs):
         """ 
