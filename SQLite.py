@@ -565,7 +565,7 @@ class SQLite:
         else:
             return [x for x in csv.reader(file, **kwargs)]
 
-    def insert(self, data=None, field=None, ignore=True, header=False, **kwargs):
+    def insert(self, data=None, field=None, ignore=True, header=False, errlog=None, **kwargs):
         """ 
         Replicates an INSERT INTO command.  
         Generates a table if specified table does not exist.
@@ -583,6 +583,9 @@ class SQLite:
            ignore: for unique tables should we IGNORE or REPLACE?
            header: is the first column of data essentially the fields?
              this is common with csv files and the like
+           errlog: Error log 
+
+        Error checking*  UNICODE is a known issue
         """
         db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
         def buildInsert(field, ignore, tbl):
@@ -609,6 +612,9 @@ class SQLite:
             sql = " ".join(sql)
             self.c.execute(sql)
         else:
+            if not errlog:
+                err = open("errlog", "wb")
+
             if type(data).__name__ in ('dict'):
                 data = [data]
             elif type(data).__name__ in ('list', 'tuple'):
@@ -645,20 +651,20 @@ class SQLite:
                     self.c.execute(sql, d)
                 #build in error handling for unicode?
                 except:
-                    if "err_file" in kwargs:
-                        er = open("err_file", "wb")
-                        er.write(sql)
-                        er.write(", ".join(d))
-                        er.write("\n")
+                    if not errlog:
+                        err.write(sql)
+                        err.write(", ".join(d))
+                        err.write("\n")
 
 
-    def addSQL(self, data, header=False, field=None, ignore=True, **kwargs):
+    def addSQL(self, data, header=False, field=None, ignore=True, errlog=None, **kwargs):
         """ 
         This serves as a convenience function to INSERT
 
         Args:
           data: can be filename, table or pure data
             uses INSERT function to manage the rest
+         *paramters match the INSERT very carefully
         """
         import types, os
         db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
@@ -667,13 +673,13 @@ class SQLite:
             #if this is a real file
             if os.path.exists(data):
                 data = self.csvInput(data, iter=True, **kwargs)
-                self.insert(data=data, field=field, header=header, ignore=ignore, db=db, tbl=tbl)
+                self.insert(data=data, field=field, header=header, ignore=ignore, errlog=errlog, db=db, tbl=tbl)
             #this is a table, copy contents from one table > another
             else:
-                self.insert(tbl=data, db=db, field=field, header=header, ignore=ignore)
+                self.insert(tbl=data, db=db, field=field, header=header, ignore=ignore, errlog=errlog)
         else:
             #this is data, just execute the insert command
-            self.insert(data=data, field=field, header=header, ignore=ignore)
+            self.insert(data=data, field=field, header=header, ignore=ignore, errlog=errlog)
 
     def merge(self, key, on, tableFrom, keyType=None, **kwargs):
         """ 
