@@ -61,7 +61,7 @@ class SQLite:
 
     #-------------------------------------HIDDEN METHODS
 
-    def _getSelf(self, fields=None, **kwargs):
+    def _getSelf(self, field=None, **kwargs):
         """ 
         GETS basic SELF defined variables (ie. self.tbl)
 
@@ -76,10 +76,10 @@ class SQLite:
         """
         list = []
         alias = {"table": "tbl", "tbl": "table"}
-        if not fields:
-            fields = kwargs.keys()
+        if not field:
+            field = kwargs.keys()
 
-        for key in sorted(fields):
+        for key in sorted(field):
             if key in alias and alias[key] in kwargs:
                 value = kwargs[alias[key]]
             elif key not in kwargs:
@@ -101,7 +101,7 @@ class SQLite:
         """ 
         IF db exists, db.tbl ELSE tbl
         """
-        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
         str = ""
         if db:
             str += (db+".")
@@ -116,6 +116,18 @@ class SQLite:
             return [x.decode("iso-8859-1") for x in list]
         except:
             return list
+
+    def _keyList(self, key, lower=False, **kwargs):
+        """ 
+        Convert key to List of keys if string or if "keys"
+        """
+        if "keys" in kwargs: #2012/07/01 to depreciate "keys"
+            key = [kwargs["keys"]]
+        if type(key).__name__ in ('unicode', 'str'):
+            key = [key]
+        if lower:
+            key = set([k.lower() for k in key])
+        return key
 
     def _sqlmasterScan(self, var, type, lookup=None, db=None, seq=None):
         """ 
@@ -168,7 +180,7 @@ class SQLite:
           if processing all indexes, list of barebore indexes
         """
         import re
-        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
 
         if idx==None:
             self.c.execute("SELECT sql FROM {tbl} WHERE type='index'".\
@@ -262,7 +274,7 @@ class SQLite:
             converts to dict {key: type}
             default type is blank
         """
-        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
         if "keys" in kwargs:
             key = kwargs["keys"]
         if type(key).__name__ in ('unicode', 'str'):
@@ -295,15 +307,10 @@ class SQLite:
           db has been removed
         """
         import csv, re, StringIO
-        tbl = self._getSelf(fields=["tbl"], **kwargs)
+        tbl = self._getSelf(field=["tbl"], **kwargs)
         indexes = []
         baseIdx = []
-
-        if "keys" in kwargs:
-            key = kwargs["keys"]
-        if type(key).__name__ in ('unicode', 'str'):
-            key = [key]
-        key = set([k.lower() for k in key])
+        key = self._keyList(key, lower=True, **kwargs)
         col = set(self.columns(lower=True, **kwargs)) - key
 
         #manipulate the table
@@ -351,11 +358,61 @@ class SQLite:
                 baseIdx.append(base)
                 self.c.execute(sql)
 
-    def delete(self, table=None): #delete table
-        if not table:
-            table = self.tbl
-        self.c.execute("DROP TABLE IF EXISTS %s" % table)
-        self.conn.commit()
+    def delete(self, key=None, **kwargs):
+        """ 
+        Equivalent to DROP table 
+        Args:
+          key: string or list of tables
+        """
+        key = self._keyList(key, **kwargs)
+        for k in key:
+            self.c.execute("DROP TABLE IF EXISTS {tbl}".format(tbl=k))
+
+    def index(self, key=None, index=None, unique=False, combo=False, **kwargs):
+        """ 
+        Creates an index on the table.
+
+        Args:
+          key: Modified default keys to key.  These are the columns to index.
+          index: Name of index to modify
+          unique: Is the index unique?  
+          combo: Do we want to index all combinations of keys?
+             ie. if combo True: [a,b] indexes [a], [b] and [a,b]
+        Return:
+          if successful indexing occurs, return name of index
+        """
+
+        import re
+        import itertools
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
+        key = self._keyList(key, lower=True, **kwargs)
+
+        if combo:
+            for x in xrange(len(key)):
+                for k in itertools.combinations(key, x+1):
+                    self.index(key=k, index=index, unique=unique, **kwargs)
+
+        if not index:
+            seq = self.indexes(seq="idx_idx", db=db)
+            index = "idx_idx{num}".format(num=seq[-1] and seq[-1]+1 or "")
+
+        idxBase = self._baseIndex(**kwargs)
+        #building an index
+        idxNew = ["CREATE"]
+        if unique:
+            idxNew.append("UNIQUE")
+        idxNew.extend(["INDEX", self._dbAdd(db=db, tbl=index), 
+            "ON", tbl, "({key})".format(key=",".join(key))])
+        idxNew = " ".join(idxNew)
+
+        if not set(key) <= set(self.columns(lower=True, **kwargs)):
+            return None #are keys a subset of columns?
+        elif self._baseIndex(idx=idxNew, **kwargs) not in idxBase:
+            self.c.execute(idxNew)
+            return self._dbAdd(db=db, tbl=index)
+        else:
+            #TODO should we return the name of the index otherwise?
+            return None
 
     #-------------------------------------STATS LIKE
 
@@ -382,7 +439,7 @@ class SQLite:
           returns a list of columns or existence of column
         """
         db, output, tbl = self._getSelf(
-            fields=["db", "tbl", "output"], **kwargs)
+            field=["db", "tbl", "output"], **kwargs)
         self.c.execute("PRAGMA %s" % (
            self._dbAdd(db=db, tbl="TABLE_INFO("+tbl+")")))
         list = []
@@ -410,7 +467,7 @@ class SQLite:
         """
         import datetime
         db, output, tbl = self._getSelf(
-            fields=["db", "tbl", "output"], **kwargs)
+            field=["db", "tbl", "output"], **kwargs)
         if self.tables(lookup=tbl, db=db):
             cnt = self.c.execute("SELECT count(*) FROM {table}".\
                 format(table=self._dbAdd(db=db, tbl=tbl))).fetchone()[0]
@@ -422,8 +479,8 @@ class SQLite:
 
     #-------------------------------------ANALYSIS
 
-    def fetch(self, fields="*", random=False, 
-              limit=None, iterator=False, **kwargs):
+    def fetch(self, field="*", random=False, 
+              limit=None, iter=False, **kwargs):
         """ 
         Replicates common function where you return an array of values
         associated with a SQLite table
@@ -434,11 +491,11 @@ class SQLite:
           random: return data in a random sequence?
         Return: This is based on the iterator. 
         """
-        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
-        if type(fields).__name__ in ("list", "tuple"):
-            fields = ",".join(fields)
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
+        if type(field).__name__ in ("list", "tuple"):
+            field = ",".join(field)
  
-        query = ["SELECT", fields, "FROM", self._dbAdd(db=db, tbl=tbl)]
+        query = ["SELECT", field, "FROM", self._dbAdd(db=db, tbl=tbl)]
         if random:
             query.append("ORDER BY random()")
         if limit:
@@ -447,7 +504,7 @@ class SQLite:
         
         if not self.tables(lookup=tbl, db=db):
             return []
-        elif iterator:
+        elif iter:
             return self.c.execute(query)
         else:
             return self.c.execute(query).fetchall()
@@ -480,9 +537,9 @@ class SQLite:
         except:
             pass
 
-    #-------------------------------------INPUT
+    #-------------------------------------DATA INPUT
 
-    def csvInput(self, path, iterator=False, **kwargs):
+    def csvInput(self, path, iter=False, **kwargs):
         """ 
         Takes a CSV like file and processes into a iterator or list
 
@@ -494,71 +551,192 @@ class SQLite:
             can do things like delimiter
         Return: This is based on the iterator. 
         """
+        if "db" in kwargs:
+            del kwargs["db"]
+        if "tbl" in kwargs:
+            del kwargs["tbl"]
+
         import csv
         file = open(path, "rb")
-        if iterator:
+        if iter:
             return csv.reader(file, **kwargs)
         else:
             return [x for x in csv.reader(file, **kwargs)]
 
-    # STOPPED AT THIS POINT
-        
-    def addSQL(self, data, db=None, table=None, header=False, field=True, allVars=False, insert=""):
-        """
-        This serves three functions depending the type of data (flat CSV, pure data, existing table)
-        If data is a link to a database -- load the data into CSV
-        
-         - If data = table name, use the data as a base
-           - If table doesn't exist, replicate ELSE Insert
-         - Else
-           - If data = filename (CSV) ... Generate table using quickSQL (header toggle is for this one)
-         - ElseIf data = data, sounds good...!
-           - Insert data
+    def insert(self, data=None, field=None, ignore=True, header=False, **kwargs):
+        """ 
+        Replicates an INSERT INTO command.  
+        Generates a table if specified table does not exist.
 
-        Field=True, defaults that field names must match 1-1
-        allVars => Make all variables VARCHARS (IGNORE BUILDING TYPE)
+        Args:
+           data: the data, can be list of lists,
+             list of dictionaries, iter (such as reader or Cursor) 
+             dictionaries specify the variable to insert into, 
+             otherwise field is considered
+             if data=None:
+               assumes we are inserting data into our current table 
+               specified through the tbl, db arguments
+           field: the fields to consider for inserting
+             if this is blank, insert following the table schema
+           ignore: for unique tables should we IGNORE or REPLACE?
+           header: is the first column of data essentially the fields?
+             this is common with csv files and the like
+        """
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
+        def buildInsert(field, ignore, tbl):
+            sql = ["INSERT", "OR"]
+            if ignore:
+                sql.append("IGNORE")
+            else:
+                sql.append("REPLACE")
+            sql.extend(["INTO", tbl])
+            if field:
+                sql.append("({schema})".format(schema=",".join(field)))
+            return sql
+
+        if not data:
+            # assuming we are inserting data from a seperate table
+            # assuming field names are the same
+            sql = buildInsert(field, ignore, self.tbl)
+            sql.append("SELECT")
+            if field:
+                sql.append(",".join(field))
+            else:
+                sql.append("*")
+            sql.extend(["FROM", self._dbAdd(db=db, tbl=tbl)])
+            sql = " ".join(sql)
+            self.c.execute(sql)
+        else:
+            if type(data).__name__ in ('dict'):
+                data = [data]
+            elif type(data).__name__ in ('list', 'tuple'):
+                if type(data[0]).__name__ not in ('list', 'tuple', 'dict'):
+                    data = [data]
+            data = iter(data)
+
+            if header:
+                field = data.next()
+
+            for i,d in enumerate(data):
+                if type(d).__name__ in ('dict'):
+                    d = d.items()
+                    f = [x[0] for x in d] #fields
+                    d = [x[1] for x in d] #data
+                else:
+                    f = field
+                sql = buildInsert(f, ignore, self._dbAdd(db=db, tbl=tbl))
+                sql.extend(["VALUES", "("+(",".join(["?"]*len(d)))+")"])
+
+                # if the table doesn't exist build it now
+                if not self.tables(lookup=tbl) and i==0:
+                    if field:
+                        schema = ",".join(field)
+                    else:
+                        schema = ",".join(
+                            ["v"+str(i) for i in xrange(1, len(d)+1)])
+                    self.c.execute("""
+                        CREATE TABLE {tbl} ({schema})
+                        """.format(tbl=tbl, schema=schema)) #"""
+
+                sql = " ".join(sql)
+                self.c.execute(sql, d)
+
+    def addSQL(self, data, header=False, field=None, ignore=True, **kwargs):
+        """ 
+        This serves as a convenience function to INSERT
+
+        Args:
+          data: can be filename, table or pure data
+            uses INSERT function to manage the rest
         """
         import types, os
-        if not table:
-            table = self.tbl
-        isFile = False
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
 
-        strBool = (type(data)==types.StringType or type(data)==types.UnicodeType)
-
-        if strBool and os.path.exists(data):
-            data = self.csvInput(data)
-            isFile = True
-        if insert!="":
-            insert = "OR %s" % insert
-
-        if not isFile:
-            if strBool and self.tables(db=db, lookup=data):
-                if self.tables(db=db, lookup=table):
-                    self.replicate(tableTo=table, table=data, db=db)
-                if field:
-                    fieldTo = set(self.columns(table=table, output=False, lower=True))
-                    fieldFr = set(self.columns(table=data, db=db, output=False, lower=True))
-                    colList = ", ".join(list(fieldTo & fieldFr))
-                    self.c.execute("INSERT %s INTO %s (%s) SELECT %s FROM %s" % (insert, table, colList, colList, self._dbAdd(db=db, tbl=data)))
-                else:
-                    self.c.execute("INSERT %s INTO %s SELECT * FROM %s" % (insert, table, self._dbAdd(db=db, tbl=data)))
-
-        #if file exists, use quickSQL..        
-        elif self.tables(db=db, lookup=table):
-            #self.quickSQL(data, table=table, header=header)
-            self.c.executemany("INSERT %s INTO %s VALUES (%s)" % (insert, table, ", ".join(["?"]*len(data[0]))), data[int(header):])
+        if type(data).__name__ in ('str', 'unicode'):
+            #if this is a real file
+            if os.path.exists(data):
+                data = self.csvInput(data, iter=True, **kwargs)
+                self.insert(data=data, field=field, header=header, ignore=ignore, db=db, tbl=tbl)
+            #this is a table, copy contents from one table > another
+            else:
+                self.insert(tbl=data, db=db, field=field, header=header, ignore=ignore)
         else:
-            self.quickSQL(data, table=table, header=header, allVars=allVars)
-            #need to make this so the variables are more flexible
-        self.conn.commit()
+            #this is data, just execute the insert command
+            self.insert(data=data, field=field, header=header, ignore=ignore)
 
-    def quickSQL(self, data, table=None, override=False, header=False, allVars=False, typescan=50, typeList=[]):
+    def merge(self, key, on, tableFrom, keyType=None, **kwargs):
+        """ 
+        *Will come back to this function
+
+        Matches the on variables from two tables and updates the key values
+
+        Example of usage: (its on the table perspective, so that's first)
+        On and Keys take an iterable with values of string or list:
+
+        ie.
+        key = ["ed", ["eric", "amy"]]
+        on = ["ron", ["ron1", "amy"]]
+        keyType = ['VARCHAR', 'VARCHAR'] #if nothing will just be blanks
+
+        All together:
+
+        .add('ed', 'VARCHAR')
+        .add('eric', 'VARCHAR')
+
+        c.executemany("UPDATE table SET ed=?, eric=? WHERE ron=? AND ron1=?",
+            c.execute("SELECT b.ed, b.amy, b.ron, b.amy
+                         FROM table AS a INNER JOIN tableFrom AS b
+                           ON a.ron=b.ron AND a.ron1=b.amy").fetchall())       
         """
+
+        def huggleMe(lst, idx=0, head="", tail="", inner=", "):
+            return head+("%s%s%s" % (tail, inner, head)).join([x[idx] for x in lst])+tail
+
+        import types, datetime
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
+
+        key = [type(x)==types.StringType and [x,x] or x for x in key]
+        on =  [type(x)==types.StringType and [x,x] or x for x in on]
+
+        for i,x in enumerate(key):
+            self.add(x[0], keyType!=None and keyType[i] or "", tbl=tbl)
+
+        idxT = self.index(keys=[x[0] for x in on], tbl=tbl)
+        idxF = self.index(keys=[x[1] for x in on], tbl=tableFrom, db=db)
+
+        self.c.executescript(""" 
+            DROP TABLE IF EXISTS TblA;
+            DROP TABLE IF EXISTS TblB;
+            CREATE TEMPORARY TABLE TblA AS SELECT %s FROM %s GROUP BY %s;
+            CREATE TEMPORARY TABLE TblB AS SELECT %s, %s FROM %s GROUP BY %s;
+            """ % (huggleMe(on), table, huggleMe(on),
+                   huggleMe(key, idx=1), huggleMe(on, idx=1), self._dbAdd(db=db, tbl=tableFrom), huggleMe(on, idx=1))) #"""
+        self.index(keys=[x[0] for x in on], tbl="TblA", index='idx_temp_TblA')
+        self.index(keys=[x[1] for x in on], tbl="TblB", index='idx_temp_TblB')
+        
+        sqlS = "UPDATE %s SET %s WHERE %s" % (tbl, huggleMe(key, tail="=?"), huggleMe(on, tail="=?", inner=" AND "))
+        sqlV = "SELECT %s, %s FROM TblA AS a INNER JOIN TblB AS b ON %s" % (
+            huggleMe(key, idx=1, head="b."), huggleMe(on, idx=1, head="b."),
+            " AND ".join(["a."+"=b.".join(x) for x in on]))
+        vals = self.c.execute(sqlV).fetchall()
+        if len(vals)>0:
+            self.c.executemany(sqlS, vals)
+
+        #remove indices that we just temporarily created
+        for x in [idxT, idxF]:
+            if x!=None:
+                self.c.execute("DROP INDEX %s" % x)
+        
+    # STOPPED AT THIS POINT
+    
+    # DEPRECIATE THIS FUNCTION?
+    def quickSQL(self, data, override=False, header=False, allVars=False, typescan=50, typeList=[], **kwargs):
+        """ 
             allVars => Make all variables VARCHARS (IGNORE BUILDING TYPE)
         """
         import re, types
-        if not table:
-            table = self.tbl
+        tbl = self._getSelf(field=["tbl"], **kwargs)
+
         if override:
             self.c.execute("DROP TABLE IF EXISTS %s" % table)
         elif self.tables(db=None, lookup=table):
@@ -567,7 +745,7 @@ class SQLite:
         if header:
             headLst = []
             for x in data[0]:
-                headLst.append(re.sub("[()!@#$%^&*'-]+", "", x).replace(" ", "_").replace("?", ""))
+                headLst.append(re.sub("[()!@$%^&*'-]+", "", x).replace(" ", "_").replace("?", ""))
                 if headLst[-1] in headLst[:-1]:
                     headLst[-1]+=str(headLst[:-1].count(headLst[-1])+1)
         tList = []
@@ -598,7 +776,6 @@ class SQLite:
             else:
                 tList.extend([y for y in typeList if y.upper().find("%s " % data[0][i].upper())==0])
 
-        #print("CREATE TABLE IF NOT EXISTS %s (%s)" % (table, ", ".join(tList)))
         self.c.execute("CREATE TABLE IF NOT EXISTS %s (%s)" % (table, ", ".join(tList)))
         if header==False:
             self.c.executemany("INSERT INTO %s VALUES (%s)" % (table, ", ".join(["?"]*len(data[0]))), data)
@@ -644,103 +821,7 @@ class SQLite:
                     self.c.execute(cleanIdx(x[0], x[1], "idx_idx%d" % idxC))
             except:
                 y=0
-        
-    def index(self, keys, index=None, table=None, db=None, unique=False, combo=False):
-        """
-        Hey Amy!  Look, documentation
-        Index is for index name
 
-        Indicates if Index is created with Index name or None
-        """
-
-        import itertools
-
-        if combo:
-            for x in xrange(len(keys)):
-                for k in itertools.combinations(keys, x+1):
-                    self.index(k, index, table, db, unique)
-        
-        import re
-        if not table:
-            table = self.tbl
-        if index==None: 
-            index = [(lambda x:len(x)>0 and int(x[0]) or 1)(re.findall('[0-9]+', x)) for x in self.indexes(db=db) if x.find('idx_idx')>=0]
-            index = len(index)==0 and "idx_idx" or "idx_idx%d" % (max(index)+1)
-
-        #only create indexes if its necessary!  (it doens't already exist)
-        idxA = self._baseIndex()
-        idxSQL = "CREATE %sINDEX %s ON %s (%s)" % (unique and "UNIQUE " or "", self._dbAdd(db=db, tbl=index), table, ",".join(keys))
-        try:
-            if self._baseIndex(idx=idxSQL, db=db) not in idxA:
-                self.c.execute(idxSQL)
-                return self._dbAdd(db=db, tbl=index)
-            else:
-                return None
-        except:
-            return None
-
-    #----- MERGE -----#
-
-    def merge(self, key, on, tableFrom, keyType=None, table=None, db=None):
-        """
-        Matches the on variables from two tables and updates the key values
-
-        Example of usage: (its on the table perspective, so that's first)
-        On and Keys take an iterable with values of string or list:
-
-        ie.
-        key = ["ed", ["eric", "amy"]]
-        on = ["ron", ["ron1", "amy"]]
-        keyType = ['VARCHAR', 'VARCHAR'] #if nothing will just be blanks
-
-        All together:
-
-        .add('ed', 'VARCHAR')
-        .add('eric', 'VARCHAR')
-
-        c.executemany("UPDATE table SET ed=?, eric=? WHERE ron=? AND ron1=?",
-            c.execute("SELECT b.ed, b.amy, b.ron, b.amy
-                         FROM table AS a INNER JOIN tableFrom AS b
-                           ON a.ron=b.ron AND a.ron1=b.amy").fetchall())       
-        """
-        import types, datetime
-        if not table:
-            table = self.tbl
-        key = [type(x)==types.StringType and [x,x] or x for x in key]
-        on = [type(x)==types.StringType and [x,x] or x for x in on]
-
-        for i,x in enumerate(key):
-            self.add(x[0], keyType!=None and keyType[i] or "", table=table)
-
-        def huggleMe(lst, idx=0, head="", tail="", inner=", "):
-            return head+("%s%s%s" % (tail, inner, head)).join([x[idx] for x in lst])+tail
-
-        idxT = self.index(keys=[x[0] for x in on], table=table)
-        idxF = self.index(keys=[x[1] for x in on], table=tableFrom, db=db)
-
-        self.c.executescript("""
-            DROP TABLE IF EXISTS TblA;
-            DROP TABLE IF EXISTS TblB;
-            CREATE TEMPORARY TABLE TblA AS SELECT %s FROM %s GROUP BY %s;
-            CREATE TEMPORARY TABLE TblB AS SELECT %s, %s FROM %s GROUP BY %s;
-            """ % (huggleMe(on), table, huggleMe(on),
-                   huggleMe(key, idx=1), huggleMe(on, idx=1), self._dbAdd(db=db, table=tableFrom), huggleMe(on, idx=1))) #"""
-        self.index(keys=[x[0] for x in on], table="TblA", index='idx_temp_TblA')
-        self.index(keys=[x[1] for x in on], table="TblB", index='idx_temp_TblB')
-        
-        sqlS = "UPDATE %s SET %s WHERE %s" % (table, huggleMe(key, tail="=?"), huggleMe(on, tail="=?", inner=" AND "))
-        sqlV = "SELECT %s, %s FROM TblA AS a INNER JOIN TblB AS b ON %s" % (
-            huggleMe(key, idx=1, head="b."), huggleMe(on, idx=1, head="b."),
-            " AND ".join(["a."+"=b.".join(x) for x in on]))
-        vals = self.c.execute(sqlV).fetchall()
-        if len(vals)>0:
-            self.c.executemany(sqlS, vals)
-
-        #remove indices that we just temporarily created
-        for x in [idxT, idxF]:
-            if x!=None:
-                self.c.execute("DROP INDEX %s" % x)
-        
     #----- OUTPUTS -----#
 
     def csv_output(self, fname="default.csv", table=None):

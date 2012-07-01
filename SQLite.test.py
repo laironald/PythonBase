@@ -29,13 +29,14 @@ class TestSQLite(unittest.TestCase):
             c.close()
             conn = sqlite3.connect(file)
         elif file.split(".")[-1] == "csv" or type == "csv":
-            os.system("echo '{data}' > {file}".\
+            os.system("echo '{data}' >> {file}".\
                 format(data=data, file=file))
             
     def setUp(self):
         self.removeFile("test.db")
         self.removeFile("test.csv")
         self.removeFile("test2.db")
+        self.removeFile("test2.csv")
         # create a really basic dataset
         self.createFile(file="test.db")
         self.s = SQLite.SQLite(db="test.db", tbl="test")
@@ -47,6 +48,7 @@ class TestSQLite(unittest.TestCase):
         self.removeFile("test.db")
         self.removeFile("test.csv")
         self.removeFile("test2.db")
+        self.removeFile("test2.csv")
 
     def test___init__(self):
         s = SQLite.SQLite()
@@ -72,12 +74,13 @@ class TestSQLite(unittest.TestCase):
         self.assertEqual([['1','2','3']],
             self.s.csvInput("test.csv"))
         self.assertEqual([['1','2','3']],
-            [x for x in self.s.csvInput("test.csv", iterator=True)])
+            [x for x in self.s.csvInput("test.csv", iter=True)])
 
         #test for different delimiters
-        self.createFile("test.csv", data="1|2|3")
+        self.createFile("test2.csv", data="1|2|3")
         self.assertEqual([['1','2','3']],
-            self.s.csvInput("test.csv", delimiter="|"))
+            self.s.csvInput("test2.csv", delimiter="|"))
+        self.removeFile("test2.csv")
 
     def test__getSelf(self):
         self.assertEquals(self.s._getSelf(tbl="foo"), "foo")
@@ -86,8 +89,8 @@ class TestSQLite(unittest.TestCase):
         self.assertItemsEqual(["db", "foo"],
             self.s._getSelf(db="db", table="foo"))
         self.assertEquals([None, "foo"],
-            self.s._getSelf(fields=["db", "table"], table="foo"))
-        self.assertEquals("test", self.s._getSelf(fields=["table"]))
+            self.s._getSelf(field=["db", "table"], table="foo"))
+        self.assertEquals("test", self.s._getSelf(field=["table"]))
 
     def test__sqlmasterLookup(self):
         self.assertIn('test',
@@ -137,9 +140,9 @@ class TestSQLite(unittest.TestCase):
         self.assertTrue((1,2,3) in self.s.fetch(random=True))
         self.assertTrue(1, len(self.s.fetch(limit=1)))
         self.assertEqual("Cursor",
-            self.s.fetch(iterator=True).__class__.__name__)
+            self.s.fetch(iter=True).__class__.__name__)
         self.assertEqual([(1,), ('2',), ('2',), ('2',), ('2',)],
-            self.s.fetch(fields=["a"]))
+            self.s.fetch(field=["a"]))
 
     def test_add(self):
         self.s.add("d")
@@ -175,6 +178,69 @@ class TestSQLite(unittest.TestCase):
         self.assertItemsEqual(['a','c'], self.s.columns())
         self.s.drop(key=["e", "f"], table="main")
         self.assertItemsEqual(['d'], self.s.columns(table="main"))
+
+    def test_delete(self):
+        self.s.delete("main")
+        self.assertEqual(['test'], self.s.tables())
+
+    def test_index(self):
+        self.s.index(['a','c'])
+        self.assertIn('test (a,c)', self.s._baseIndex())
+        self.s.index('a', unique=True)
+        self.assertIn('test (a)', self.s._baseIndex())
+        self.assertFalse(self.s.index(['a','c']))
+        self.s.index('f', tbl="main")
+        self.assertIn('main (f)', self.s._baseIndex())
+        self.assertFalse(self.s.index('a', tbl="main"))
+        self.s.index(['e', 'f'], combo=True, tbl="main")
+        self.assertIn('main (e)', self.s._baseIndex(tbl="main"))
+        self.assertIn('main (e,f)', self.s._baseIndex(tbl="main"))
+        self.s.index(['a','c'], db="db")
+        self.assertIn('test (a,c)', self.s._baseIndex(db="db"))
+
+    def test_insert(self):
+        self.createFile("test.csv", data='X,X,X')
+        self.createFile("test2.csv", data='c,b,a')
+        self.createFile("test2.csv", data='V,U,T')
+        self.s.insert([99,99,99])
+        self.s.insert({'a':1})
+        self.s.insert([{'a':'a'},{'b':'b'}])
+        self.s.insert([{'a':'z', 'c':'z'},[5,10,15]], field=['c','b','a'])
+        self.s.insert([[5,5],[6,6]], field=['a','b'])
+        self.s.insert(self.s.csvInput("test.csv", iter=True))
+        self.s.insert(self.s.csvInput("test2.csv", iter=True), header=True)
+        self.s.insert([['a','c'],['Z','Z']], header=True)
+        self.s.insert([['a','c'],['Z','Z']], tbl="foo", header=True)
+        self.s.insert([['a','c'],['Z','Z']], tbl="bar")
+
+        self.assertIn((99,99,99), self.s.fetch())
+        self.assertIn((1,None,None), self.s.fetch())
+        self.assertIn(('a',None,None), self.s.fetch())
+        self.assertIn((None,'b',None), self.s.fetch())
+        self.assertIn(('z',None,'z'), self.s.fetch())
+        self.assertIn(('Z',None,'Z'), self.s.fetch())
+        self.assertIn((15,10,5), self.s.fetch())
+        self.assertIn((5,5,None), self.s.fetch())
+        self.assertIn((6,6,None), self.s.fetch())
+        self.assertIn(('X','X','X'), self.s.fetch())
+        self.assertIn(('T','U','V'), self.s.fetch())
+        self.assertIn(('Z','Z'), self.s.fetch(tbl="foo"))
+        self.assertIn(('a','c'), self.s.fetch(tbl="bar"))
+        self.assertEquals(12, len(self.s.fetch()))
+        self.s.insert(tbl='main', db='db')
+        self.assertEquals(13, len(self.s.fetch()))
+
+    def test_addSQL(self):
+        self.createFile("test.csv", data='X,X,X')
+        self.s.addSQL("test.csv")
+        self.s.addSQL("test.csv", tbl="foo")
+        self.s.addSQL("test.csv", header=True, tbl="bar")
+        self.s.addSQL((99,99,99))
+        self.s.addSQL("main")
+        self.assertIn(('X','X','X'), self.s.fetch())
+        self.assertIn((99,99,99), self.s.fetch())
+        self.assertIn(('X','X','X'), self.s.fetch(tbl='foo'))
+        self.assertEquals(4, len(self.s.fetch()))
 
 if __name__ == '__main__':
     unittest.main()
