@@ -70,6 +70,7 @@ class SQLite:
           **kwargs: keyword arguments related self. variables
         Return:
           returns variables in sequence provided
+          if list is length one, return string
         *NOTE: self.__dict__ returns a list of 
                avaiable SELF defined variables
         """
@@ -91,7 +92,10 @@ class SQLite:
                 elif key in alias and alias[key] in self.__dict__:
                     value = self.__dict__[alias[key]]
             list.append(value)
-        return list
+        if len(list)==1:
+            return list[0]
+        else:
+            return list
 
     def _dbAdd(self, **kwargs):
         """ 
@@ -153,6 +157,48 @@ class SQLite:
         else:
             return lookup.lower() in list
 
+    def _baseIndex(self, idx=None, **kwargs):
+        """ 
+        Boils down a Index to its most basic form. ie. table (keys)
+
+        Args:
+          idx: a specific index SQL to process or name of index
+            if None specified, process all indexes
+        Return:
+          if processing all indexes, list of barebore indexes
+        """
+        import re
+        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
+
+        if idx==None:
+            self.c.execute("SELECT sql FROM {tbl} WHERE type='index'".\
+                format(tbl=self._dbAdd(db=db, tbl="sqlite_master")))
+            sqls = self.c.fetchall()
+        else:
+            self.c.execute("SELECT sql FROM {tbl} WHERE type='index' AND name='{idx}'".\
+                format(tbl=self._dbAdd(db=db, tbl="sqlite_master"), idx=idx))
+            sqls = self.c.fetchall()
+            # if index name doesn't exist assume SQL statement
+            if not len(sqls):
+                sqls = [[idx,]]
+
+        #simplify the list
+        idxLst = []
+        for sql in sqls:
+            sql = re.sub("index .*? on", "", sql[0].lower())
+            sql = re.sub(", ", ",", sql)
+            sql = re.sub("  +", " ", sql)
+            sql = sql.replace("create ", "")
+            schema = re.findall("[(].*?[)]", sql)[0][1:-1]
+            #reorder the keys
+            sql = sql.replace(schema, ",".join(sorted(schema.split(","))))
+            idxLst.append(sql)
+
+        if idx:
+            return idxLst[0]
+        else:
+            return idxLst
+
     #-------------------------------------BACKGROUND FX
 
     def close(self):
@@ -202,32 +248,108 @@ class SQLite:
 
     #-------------------------------------TABLE MANIPULATION
 
-    def add(self, key, typ="", **kwargs):
-        if not table:
-            table = self.tbl
-        if type(key).__name__ in ('tuple', 'list'):
-            key = [key]
-        for k in key:
+    def add(self, key=None, **kwargs):
+        """ 
+        Allows one the ability to add columns to SQLite table
+        **update 2012/06/30: 
+          removed the typ variable
+          now key should be a dictionary type       
+          will deprecaite key=None to just key
+        
+        Args:
+          key: {key: value} <==> synonym is keys
+            input can be list, tuple, str, unicode, dict
+            converts to dict {key: type}
+            default type is blank
+        """
+        db, tbl = self._getSelf(fields=["db", "tbl"], **kwargs)
+        if "keys" in kwargs:
+            key = kwargs["keys"]
+        if type(key).__name__ in ('unicode', 'str'):
+            key = {key: ""}
+        elif type(key).__name__ in ('list', 'tuple'):
+            key = dict([[k, ""] for k in key])
+
+        for k,v in key.items():
+            if "typ" in kwargs:
+                v = kwargs["typ"] #2012/06/30 to deprecaite typ
             if not self.columns(lower=True, lookup=k, **kwargs):
                 self.c.execute("""
-                    ALTER TABLE {table} ADD COLUMN {col} {typ}
-                    """.format(table=table, col=k, typ=typ)) #"""
+                    ALTER TABLE {table} ADD COLUMN {name} {type}
+                    """.format(table=self._dbAdd(
+                        db=db, tbl=tbl), name=k, type=v)) #"""
     
-    def drop(self, keys, table=None): #drop columns -- doesn't exist so lame!
-        import types
-        if not table:
-            table = self.tbl
-        if type(keys)!=types.ListType:
-            keys = [keys]
-        cols = ", ".join([x for x in self.columns(output=False) if x.lower() not in [y.lower() for y in keys]])
-        self.c.executescript("""
-            DROP TABLE IF EXISTS %s_backup;
-            ALTER TABLE %s RENAME TO %s_backup;
-            """ % (table, table, table)) #"""
-        self.c.execute("CREATE TABLE %s (%s)" % (table, ", ".join([" ".join([x[1], x[2]]) for x in self.c.execute("PRAGMA TABLE_INFO(%s_backup)" % table) if x[1].lower() not in [y.lower() for y in keys]])))
-        self.replicate(tableTo=table, table="%s_backup" % table)
-        self.c.execute("INSERT INTO %s SELECT %s FROM %s_backup" % (table, cols, table))
-        self.c.execute("DROP TABLE %s_backup" % (table))
+    def drop(self, key=None, **kwargs):
+        """ 
+        Allows one the ability to drop columns in SQLite table
+        This function doesn't exist in SQLite.  Better to do this earlier as it requires SQL.
+        **update 2012/06/30: 
+            modified default "keys" to "key"
+            will deprecaite they "keys" option over time and require key
+        
+        Args:
+          key: list of column keys to remove <==> synonym is keys
+            input can be list, tuple, str, unicode
+            default type is blank
+        Note: dropping an attached table doesn't matke sense so
+          db has been removed
+        """
+        import csv, re, StringIO
+        tbl = self._getSelf(fields=["tbl"], **kwargs)
+        indexes = []
+        baseIdx = []
+
+        if "keys" in kwargs:
+            key = kwargs["keys"]
+        if type(key).__name__ in ('unicode', 'str'):
+            key = [key]
+        key = set([k.lower() for k in key])
+        col = set(self.columns(lower=True, **kwargs)) - key
+
+        #manipulate the table
+        self.c.execute("SELECT sql,type FROM {tbl} WHERE tbl_name='{where}'".\
+            format(tbl="sqlite_master", where=tbl))
+        sqls = self.c.fetchall()
+
+        #sometimes the sql can get complicated
+        for sql, typ in sqls:
+            sql = re.sub("[\n\t]", "", sql)
+            schema = re.findall("[(].*[)]", sql, re.S)[0][1:-1]
+            sql = sql.replace(schema, "{schema}")
+           
+            schema = [s.strip() for s in schema.split(",")]
+            schCsv = [csv.reader(StringIO.StringIO(s)).next()
+                         for s in schema]
+
+            #remove part of the SQL structure
+            for k in key:
+                for s in schCsv:
+                    if k.lower() == s[0].lower():
+                        schema.pop(schCsv.index(s))
+                        schCsv.remove(s)
+
+            sql = sql.format(schema=", ".join(schema))
+            if len(schema):
+                if typ=="table":
+                    tblSql = sql
+                else:
+                    indexes.append(sql)
+
+        self.c.executescript(""" 
+            DROP TABLE IF EXISTS {tbl}_backup;
+            ALTER TABLE {tbl} RENAME TO {tbl}_backup;
+            {tblSql};
+            INSERT INTO {tbl} ({schema})
+                SELECT {schema} FROM {tbl}_backup;
+            DROP TABLE {tbl}_backup;
+            """.format(tbl=tbl, schema=",".join(col), tblSql=tblSql)) #"""
+
+        for sql in indexes:
+            # figure out a base to remove redundancies
+            base = self._baseIndex(idx=sql)
+            if base not in baseIdx:
+                baseIdx.append(base)
+                self.c.execute(sql)
 
     def delete(self, table=None): #delete table
         if not table:
@@ -264,6 +386,8 @@ class SQLite:
         self.c.execute("PRAGMA %s" % (
            self._dbAdd(db=db, tbl="TABLE_INFO("+tbl+")")))
         list = []
+        if lower and lookup:
+            lookup = lookup.lower()
         for row in self.c:
             if output and not lookup: print row
             if lower:
@@ -500,7 +624,7 @@ class SQLite:
             format(table=self._dbAdd(db=db, tbl="sqlite_master"), filter=table)).fetchall()
 
         idxC = 0
-        idxA = self.baseIndex()
+        idxA = self._baseIndex()
         idxR = self.indexes(seq='idx_idx')
         def cleanTbl(wrd):
             wrd = re.sub(re.compile('create table ["\']?%s["\']?' % table, re.I), 'create table %s' % tableTo, wrd)
@@ -508,7 +632,7 @@ class SQLite:
         def cleanIdx(wrd, name, newname):
             wrd = re.sub(re.compile(' on ["\']?%s["\']?' % table, re.I), ' on %s' % tableTo, wrd)
             wrd = re.sub(re.compile('INDEX %s ON' % name, re.I), 'INDEX %s ON' % newname, wrd)
-            return self.baseIndex(idx=wrd) not in idxA and wrd or "";
+            return self._baseIndex(idx=wrd) not in idxA and wrd or "";
         for x in sqls:
             try:
                 if x[2]=='table':
@@ -520,24 +644,6 @@ class SQLite:
                     self.c.execute(cleanIdx(x[0], x[1], "idx_idx%d" % idxC))
             except:
                 y=0
-    def baseIndex(self, idx=None, db=None):
-        """
-        Boils down a Index to its most basic form.
-        Throw in an idx (string) to process that specific SQL.
-        """
-        import re
-        if idx==None:
-            sqls = self.c.execute("SELECT sql FROM %s WHERE type='index';" % (self._dbAdd(db=db, tbl="sqlite_master"))).fetchall()
-        else:
-            sqls = [[idx,]]
-        #simplify the list
-        idxLst = [re.sub("  +", " ", re.sub(", ", ",", re.sub(re.compile('INDEX .*? ON', re.I), 'INDEX ON', x[0]))).lower() for x in sqls if x[0]!=None]
-        #reorders the keys (so sequentiality matters!)
-        idxLst = [re.sub("[(].*?[)]", "(%s)" % ",".join(sorted(re.findall("[(](.*?)[)]", x)[0].split(','))), x) for x in idxLst] 
-        if idx==None:
-            return idxLst
-        else:
-            return idxLst[0]
         
     def index(self, keys, index=None, table=None, db=None, unique=False, combo=False):
         """
@@ -562,10 +668,10 @@ class SQLite:
             index = len(index)==0 and "idx_idx" or "idx_idx%d" % (max(index)+1)
 
         #only create indexes if its necessary!  (it doens't already exist)
-        idxA = self.baseIndex()
+        idxA = self._baseIndex()
         idxSQL = "CREATE %sINDEX %s ON %s (%s)" % (unique and "UNIQUE " or "", self._dbAdd(db=db, tbl=index), table, ",".join(keys))
         try:
-            if self.baseIndex(idx=idxSQL, db=db) not in idxA:
+            if self._baseIndex(idx=idxSQL, db=db) not in idxA:
                 self.c.execute(idxSQL)
                 return self._dbAdd(db=db, tbl=index)
             else:

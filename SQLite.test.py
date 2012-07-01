@@ -19,8 +19,11 @@ class TestSQLite(unittest.TestCase):
             c = conn.cursor()
             c.executescript(""" 
                 CREATE TABLE test (a, B, c);
+                CREATE TABLE main (d, E, f);
                 INSERT INTO test VALUES ({data});
+                INSERT INTO main VALUES ({data});
                 CREATE INDEX idx ON test (a);
+                CREATE INDEX idy ON test (a, b);
                 """.format(data=data)) #"""
             conn.commit()
             c.close()
@@ -36,6 +39,9 @@ class TestSQLite(unittest.TestCase):
         # create a really basic dataset
         self.createFile(file="test.db")
         self.s = SQLite.SQLite(db="test.db", tbl="test")
+        self.createFile("test2.db")
+        s = SQLite.SQLite("test2.db", tbl="test")
+        self.s.attach(s)
 
     def tearDown(self):
         self.removeFile("test.db")
@@ -74,25 +80,22 @@ class TestSQLite(unittest.TestCase):
             self.s.csvInput("test.csv", delimiter="|"))
 
     def test__getSelf(self):
-        self.assertEquals(self.s._getSelf(tbl="foo"), ["foo"])
-        self.assertEquals(self.s._getSelf(table="foo"), ["foo"])
-        self.assertEquals(self.s._getSelf(db="db"), ["db"])
-        self.assertEquals(["db", "foo"],
+        self.assertEquals(self.s._getSelf(tbl="foo"), "foo")
+        self.assertEquals(self.s._getSelf(table="foo"), "foo")
+        self.assertEquals(self.s._getSelf(db="db"), "db")
+        self.assertItemsEqual(["db", "foo"],
             self.s._getSelf(db="db", table="foo"))
         self.assertEquals([None, "foo"],
             self.s._getSelf(fields=["db", "table"], table="foo"))
-        self.assertEquals(["test"], self.s._getSelf(fields=["table"]))
+        self.assertEquals("test", self.s._getSelf(fields=["table"]))
 
     def test__sqlmasterLookup(self):
         self.assertIn('test',
             self.s._sqlmasterScan(var="tbl_name", type="table"))
-        s = SQLite.SQLite() #attach
-        s.attach(self.s)    #psuedo tests s.attach too
         self.assertIn('test',
-            s._sqlmasterScan(var="tbl_name", type="table", db="db"))
-        s.attach("test.db")
+            self.s._sqlmasterScan(var="tbl_name", type="table", db="db"))
         self.assertIn('idx',
-            s._sqlmasterScan(var="name", type="index", db="db"))
+            self.s._sqlmasterScan(var="name", type="index", db="db"))
 
     def test_indexes(self):
         self.assertIn('idx', self.s.indexes())
@@ -109,13 +112,11 @@ class TestSQLite(unittest.TestCase):
         self.assertEquals([1,3], self.s.indexes(seq="idx"))
 
     def test_count(self):
-        self.createFile("test2.db")
-        s = SQLite.SQLite("test2.db")
-        s.c.execute("INSERT INTO test VALUES ('2','3','4')")
-        s.commit()
-        self.assertEqual(1, self.s.count())
-        self.assertEqual(0, s.count())
-        self.assertEqual(2, s.count(table="test"))
+        self.s.c.execute("INSERT INTO test VALUES ('2','3','4')")
+        self.s.commit()
+        self.assertEqual(2, self.s.count())
+        self.assertEqual(0, self.s.count(table="foo"))
+        self.assertEqual(1, self.s.count(table="test", db="db"))
 
     def test_column(self):
         self.assertEqual(['a','B','c'], self.s.columns())
@@ -123,6 +124,8 @@ class TestSQLite(unittest.TestCase):
         self.assertEqual([], self.s.columns(tbl="foo"))
         self.assertTrue(self.s.columns(lookup='a'))
         self.assertFalse(self.s.columns(lookup='A'))
+        self.assertTrue(self.s.columns(lower=True, lookup='a'))
+        self.assertTrue(self.s.columns(lower=True, lookup='A'))
 
     def test_fetch(self):
         self.s.c.execute("INSERT INTO test VALUES ('2','3','4')")
@@ -138,6 +141,40 @@ class TestSQLite(unittest.TestCase):
         self.assertEqual([(1,), ('2',), ('2',), ('2',), ('2',)],
             self.s.fetch(fields=["a"]))
 
+    def test_add(self):
+        self.s.add("d")
+        self.s.add("e", typ="ron")
+        self.s.add(keys=["e", "f"], typ="ron")
+        self.s.add({"A":"g", "B":"h"}, table="main")
+        self.assertItemsEqual(["B","a","c","d","e","f"], 
+            self.s.columns())
+        self.assertItemsEqual(["A","B","E","d","f"], 
+            self.s.columns(table="main"))
+        self.s.add("d", db="db")
+        self.s.add(keys="e", typ="ron", db="db")
+        self.s.add(["e", "f"], typ="ron", db="db")
+        self.s.add({"A":"g", "B":"h"}, table="main", db="db")
+        self.assertItemsEqual(["B","a","c","d","e","f"], 
+            self.s.columns(db="db"))
+        self.assertItemsEqual(["A","B","E","d","f"], 
+            self.s.columns(table="main", db="db"))
+
+    def test__baseIndex(self):
+        self.assertItemsEqual(['test (a)', 'test (a,b)'],
+            self.s._baseIndex(db="db"))
+        self.assertEqual('test (a)',
+            self.s._baseIndex(idx="idx"))
+        self.assertEqual('foo (bar,foo)',
+            self.s._baseIndex(idx="create index x on foo (foo, bar)"))
+        self.assertEqual('unique foo (foo)',
+            self.s._baseIndex(idx="create unique index x on foo (foo)"))
+
+    def test_drop(self):
+        self.s.drop(key="b")
+        self.assertEqual(['idx'], self.s.indexes())
+        self.assertItemsEqual(['a','c'], self.s.columns())
+        self.s.drop(key=["e", "f"], table="main")
+        self.assertItemsEqual(['d'], self.s.columns(table="main"))
 
 if __name__ == '__main__':
     unittest.main()
