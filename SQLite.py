@@ -613,7 +613,7 @@ class SQLite:
             self.c.execute(sql)
         else:
             if errlog:
-                err = open("errlog", "wb")
+                err = open(errlog, "wb")
 
             if type(data).__name__ in ('dict'):
                 data = [data]
