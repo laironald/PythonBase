@@ -612,7 +612,7 @@ class SQLite:
             sql = " ".join(sql)
             self.c.execute(sql)
         else:
-            if not errlog:
+            if errlog:
                 err = open("errlog", "wb")
 
             if type(data).__name__ in ('dict'):
@@ -651,7 +651,7 @@ class SQLite:
                     self.c.execute(sql, d)
                 #build in error handling for unicode?
                 except:
-                    if not errlog:
+                    if errlog:
                         err.write(sql)
                         err.write(", ".join(d))
                         err.write("\n")
