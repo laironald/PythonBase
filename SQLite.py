@@ -539,6 +539,47 @@ class SQLite:
         except:
             pass
 
+    def replicate(self, tableTo=None, **kwargs):
+        """ 
+        Replicates the basic structure of a table to another table
+
+        Args:
+          tableTo: replicate db.tbl to tableTo.  Basic assumption is default to self.tbl.
+        """
+        import re
+        db, tbl = self._getSelf(field=["db", "tbl"], **kwargs)
+        if not tableTo:
+            tableTo = self.tbl
+
+        self.c.execute(""" 
+            ALTER TABLE {table} RENAME TO {tblTo}
+            """.format(tblTo=tableTo,
+                       table=self._dbAdd(tbl=tbl, db=db))) #"""
+        self.c.execute(""" 
+            SELECT sql FROM {table} WHERE tbl_name='{where}' AND type='table'
+            """.format(table=self._dbAdd(db=db, tbl="sqlite_master"), 
+                       where=tableTo)) #"""
+        sqlTbl = self.c.fetchone()[0]
+        self.c.execute(""" 
+            SELECT sql, name FROM {table} WHERE tbl_name='{where}' AND type!='table'
+            """.format(table=self._dbAdd(db=db, tbl="sqlite_master"), 
+                       where=tableTo)) #"""
+        sqlOth = self.c.fetchall()
+        self.c.execute(""" 
+            ALTER TABLE {table} RENAME TO {tblTo}
+            """.format(tblTo=tbl,
+                       table=self._dbAdd(tbl=tableTo, db=db))) #"""
+
+        self.c.execute(sqlTbl)
+        for sql, name in sqlOth:
+            schema = re.findall("[(].*?[)]", sql, re.S)[0][1:-1]
+            sql = sql.replace(schema, "{schema}")
+            # TODO: replace is probably not enough.  what if index is called "E"?
+            #       could cause some issues.. since CREATE INDEX ...
+            sql = sql.replace(name, tableTo+"_"+name)
+            sql = sql.format(schema=schema)
+            self.c.execute(sql)
+
     #-------------------------------------DATA INPUT
 
     def csvInput(self, path, iter=False, **kwargs):
@@ -802,45 +843,6 @@ class SQLite:
         else:
             self.c.executemany("INSERT INTO %s VALUES (%s)" % (table, ", ".join(["?"]*len(data[0]))), data[1:])
         self.conn.commit()            
-
-    def replicate(self, tableTo=None, table=None, db=None):
-        """
-        Replicates the basic structure of another table
-        """
-        import re
-        #replicate the structure of a table
-        if not table:
-            table = self.tbl
-        if db==None:
-            if tableTo==None: #THIS ALLOWS US TO AUTOMATICALLY ADD TABLES
-                tableTo = [(lambda x:len(x)>0 and int(x[0]) or 1)(re.findall('[0-9]+', x)) for x in self.tables() if x.find(table.lower())>=0]
-                tableTo = len(tableTo)==0 and table or "%s%d" % (table, max(tableTo)+1)
-        else:
-            tableTo = table
-        sqls = self.c.execute("SELECT sql, name, type FROM {table} WHERE tbl_name='{filter}';".\
-            format(table=self._dbAdd(db=db, tbl="sqlite_master"), filter=table)).fetchall()
-
-        idxC = 0
-        idxA = self._baseIndex()
-        idxR = self.indexes(seq='idx_idx')
-        def cleanTbl(wrd):
-            wrd = re.sub(re.compile('create table ["\']?%s["\']?' % table, re.I), 'create table %s' % tableTo, wrd)
-            return wrd
-        def cleanIdx(wrd, name, newname):
-            wrd = re.sub(re.compile(' on ["\']?%s["\']?' % table, re.I), ' on %s' % tableTo, wrd)
-            wrd = re.sub(re.compile('INDEX %s ON' % name, re.I), 'INDEX %s ON' % newname, wrd)
-            return self._baseIndex(idx=wrd) not in idxA and wrd or "";
-        for x in sqls:
-            try:
-                if x[2]=='table':
-                    self.c.execute(cleanTbl(x[0]))
-                elif 'index':
-                    idxC+=1
-                    if idxC>=idxR[0] and idxC<=idxR[1]:
-                        idxC = idxR[1]+1
-                    self.c.execute(cleanIdx(x[0], x[1], "idx_idx%d" % idxC))
-            except:
-                y=0
 
     #----- OUTPUTS -----#
 

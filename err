@@ -1,0 +1,3 @@
+INSERT OR IGNORE INTO bar VALUES (?,?,?)
+Z, Z, Z
+--------------

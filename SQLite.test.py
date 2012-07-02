@@ -244,6 +244,20 @@ class TestSQLite(unittest.TestCase):
         self.assertIn(('X','X','X'), self.s.fetch(tbl='foo'))
         self.assertEquals(4, len(self.s.fetch()))
 
+    def test_replicate(self):
+        self.s.replicate(tbl="test", db="db", tableTo="foo")
+        self.assertEquals(
+            self.s.c.execute("SELECT count(*) FROM db.sqlite_master WHERE tbl_name='test'").fetchone(),
+            self.s.c.execute("SELECT count(*) FROM sqlite_master WHERE tbl_name='foo'").fetchone())
+        self.assertItemsEqual(self.s.columns(tbl="test", db="db"),
+            self.s.columns(tbl="foo"))
+        self.s.replicate(tbl="test", tableTo="bar")
+        self.assertEquals(
+            self.s.c.execute("SELECT count(*) FROM sqlite_master WHERE tbl_name='bar'").fetchone(),
+            self.s.c.execute("SELECT count(*) FROM sqlite_master WHERE tbl_name='test'").fetchone())
+        self.assertItemsEqual(self.s.columns(tbl="test"),
+            self.s.columns(tbl="foo"))
+
 if __name__ == '__main__':
     unittest.main()
 
