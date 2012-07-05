@@ -24,15 +24,22 @@
 import time
 import boto
 import boto.ec2
+import boto.route53
 import re
 import os
 import sys
 
 class BotoWrap:
     """Global variables:
-        s3 - S3 connection
+        s3 = S3 connection
         bucket - S3 bucket
+
+        r53 = Route53 
+        host = hosted zone id
     """
+
+    s3 = None
+    r53 = None
 
     def __init__(self, bucket=None):
         """ 
@@ -41,16 +48,82 @@ class BotoWrap:
                 "new" means create new folder (smetrics_x) | x=time
                 default: smetrics_default
         """
+        # S3
         self.s3 = boto.connect_s3()	
-        if not bucket: bucket = "smetrics_default"
-        elif bucket == "new": bucket = "smetrics_" + str(time.time())
+        if not bucket: 
+            bucket = "smetrics_default"
+        elif bucket == "new": 
+            bucket = "smetrics_" + str(time.time())
         self.setBucket(bucket)
+
+        # R53
+        self.r53 = boto.connect_route53()
+        self.host = None
+
+    #======================================= Route 53
+
+    def _retVarList(self, list):
+        """ 
+        Checks a list.  
+        If single item, return the item.  If blank, return None.  
+        Else. return the entire list.
+        **Chosen not to test
+        """
+        if len(list) == 0:
+            return None
+        elif len(list) == 1:
+            return list[0]
+        else:
+            return list
+
+    #======================================= Route 53
+
+    def getHost(self, host=None, **kwargs):
+        """Get the Host Zone ID for the host specified
+
+        Args:
+            host: the name (or partial name) of a domain name
+              if blank, defaults to the first Hosted Zone
+        Returns:
+            a list or single item that represents the HostId
+        """
+        hosts = self.r53.get_all_hosted_zones(**kwargs)
+        hosts = hosts.ListHostedZonesResponse.HostedZones
+        list = []
+
+        if not host:
+            list.append(hosts[0].Id)
+        else:
+            for h in hosts:
+                #for convenience purposes, note: this may create duplication issues
+                if h.Name.find(host) == 0:
+                    print h.Id.replace("/hostedzone/", "")
+                    list.append(h.Id)
+                else:
+                    print "X", h.Id, h.Name
+
+        list = [h.replace("/hostedzone/", "") for h in list]
+        return self._retVarList(list)
+
+    def setHost(self, host=None):
+        """ 
+        Set default hosted zone id. If domain is provided find and set appropriately
+
+        Args: 
+          host: the name (or hosted zone id)
+        """
+        try:
+            self.r53.get_all_rrsets(host)
+            self.host = host
+        except:
+            self.host = self.getHost(host)
+
+    #======================================= S3
 
     def setBucket(self, bucket):
         """set Bucket
         Args:
             bucket: name of the bucket to change
-        Returns: bucket object
         """
         self.bucket = self.s3.create_bucket(bucket)
 

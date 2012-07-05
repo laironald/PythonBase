@@ -3,11 +3,13 @@
 import BotoWrap
 import unittest
 import os
+import sys
 
 class TestBotoWrap(unittest.TestCase):
 
     def setUp(self):
         self.aws = BotoWrap.BotoWrap(bucket="smetrics_test")
+        #s3
         os.system("touch file.test")
         os.system("mkdir tempDIRtemp")
         os.system("touch tempDIRtemp/file1.test")
@@ -20,6 +22,7 @@ class TestBotoWrap(unittest.TestCase):
         self.key2.set_contents_from_filename("file.test")
 
     def tearDown(self):
+        #s3
         os.system("rm file.test")
         os.system("rm tempDIRtemp/file1.test")
         os.system("rm tempDIRtemp/file2.test")
@@ -28,6 +31,8 @@ class TestBotoWrap(unittest.TestCase):
         os.system("rmdir tempDIRtemp")
         self.key1.delete()
         self.key2.delete()
+
+    #======================================= S3
 
     def s3KeyCheck(self, key, bucket=None, remove=True, acl=None):
         #easy test to see if a certain file exists
@@ -121,6 +126,46 @@ class TestBotoWrap(unittest.TestCase):
         for x in k: x.delete()
         os.chdir("..")
 
+    #======================================= Route 53
+
+    def test_getHost(self):
+        #r53
+        self.hosts = [self.aws.r53.create_hosted_zone(domain_name="test.com"),
+                      self.aws.r53.create_hosted_zone(domain_name="test2.com")]
+
+        print self.aws.getHost("test")
+        print self.aws.getHost("test.com")
+        print self.aws.host
+        print self.aws.setHost("test")
+        print self.aws.host
+        #r53
+        self.aws.r53.delete_hosted_zone(self.hosts[0].CreateHostedZoneResponse.HostedZone.Id.replace("/hostedzone/", ""))
+        self.aws.r53.delete_hosted_zone(self.hosts[1].CreateHostedZoneResponse.HostedZone.Id.replace("/hostedzone/", ""))
+        pass
+
 if __name__ == '__main__':
-    unittest.main()
+
+    b = BotoWrap.BotoWrap()
+    print b.getHost("test.com")
+    print b.getHost("smetrics.org")
+    print b.setHost("smetrics.org")
+    print b.host
+
+    fjkdsajflajladsjfldjs
+
+    if len(sys.argv) > 1:
+        # if we specify a specific testing group ie. ./BotoWrap.test.py s3
+        tests = unittest.TestSuite()
+        if sys.argv[1].lower() == "s3":
+            tests.addTest(TestBotoWrap('test_getS3key'))
+            tests.addTest(TestBotoWrap('test_downloadS3'))
+            tests.addTest(TestBotoWrap('test_downloadS3_path'))
+            tests.addTest(TestBotoWrap('test_uploadS3'))
+            tests.addTest(TestBotoWrap('test_uploadS3_path'))
+        elif sys.argv[1].lower() == "r53":
+            tests.addTest(TestBotoWrap('test_getHost'))
+        unittest.TextTestRunner().run(tests)
+    else:
+        unittest.main()
+
 
