@@ -1,9 +1,11 @@
 #!/usr/bin/python
 
-import SQLite
 import unittest
 import os
 import sqlite3
+import sys
+sys.path.append('..')
+import SQLite
 
 class TestSQLite(unittest.TestCase):
 
@@ -49,7 +51,7 @@ class TestSQLite(unittest.TestCase):
         self.removeFile("test.csv")
         self.removeFile("test2.db")
         self.removeFile("test2.csv")
-        self.removeFile("errlog")
+        self.removeFile("err")
 
     def test___init__(self):
         s = SQLite.SQLite()
