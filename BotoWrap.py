@@ -41,12 +41,13 @@ class BotoWrap:
     s3 = None
     r53 = None
 
-    def __init__(self, bucket=None):
+    def __init__(self, bucket=None, host=None):
         """ 
         Args: 
             bucket: if bucket exists w/o permission, raises boto error.
                 "new" means create new folder (smetrics_x) | x=time
-                default: smetrics_default
+                default: smetrics_default (for S3)
+            host: the hosted zone id (for R53)
         """
         # S3
         self.s3 = boto.connect_s3()	
@@ -58,7 +59,10 @@ class BotoWrap:
 
         # R53
         self.r53 = boto.connect_route53()
-        self.host = None
+        self.setHost(host)
+
+    def __del__(self):
+        pass
 
     #======================================= Route 53
 
@@ -97,10 +101,7 @@ class BotoWrap:
             for h in hosts:
                 #for convenience purposes, note: this may create duplication issues
                 if h.Name.find(host) == 0:
-                    print h.Id.replace("/hostedzone/", "")
                     list.append(h.Id)
-                else:
-                    print "X", h.Id, h.Name
 
         list = [h.replace("/hostedzone/", "") for h in list]
         return self._retVarList(list)
@@ -117,6 +118,13 @@ class BotoWrap:
             self.host = host
         except:
             self.host = self.getHost(host)
+
+    def updateRecordSet(self, domain, host=None):
+        """ 
+        """
+        changes = self.r53.get_all_rrsets(host)
+        recsets = [c for c in changes]
+        
 
     #======================================= S3
 

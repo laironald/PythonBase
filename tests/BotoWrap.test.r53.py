@@ -8,39 +8,27 @@ import BotoWrap
 
 class TestBotoWrap(unittest.TestCase):
 
+    def removeTests(self, b):
+        hosts = b.getHost("test_")
+        if hosts:
+            for h in hosts:
+                b.r53.delete_hosted_zone(h)
+
     def setUp(self):
         self.aws = BotoWrap.BotoWrap()
+        self.removeTests(self.aws)
+        self.aws.r53.create_hosted_zone(domain_name="test_1.com")
+        self.aws.r53.create_hosted_zone(domain_name="test_2.com")
 
     def tearDown(self):
-        pass
+        self.removeTests(self.aws)
 
     #======================================= Route 53
 
     def test_getHost(self):
-        #r53
-        self.hosts = [self.aws.r53.create_hosted_zone(domain_name="test.com"),
-                      self.aws.r53.create_hosted_zone(domain_name="test2.com")]
-
-        print self.aws.getHost("test")
-        print self.aws.getHost("test.com")
-        print self.aws.host
-        print self.aws.setHost("test")
-        print self.aws.host
-        #r53
-        self.aws.r53.delete_hosted_zone(self.hosts[0].CreateHostedZoneResponse.HostedZone.Id.replace("/hostedzone/", ""))
-        self.aws.r53.delete_hosted_zone(self.hosts[1].CreateHostedZoneResponse.HostedZone.Id.replace("/hostedzone/", ""))
-        pass
+        self.assertEquals(2, len(self.aws.getHost("test_")))
+        self.assertEquals("Z", self.aws.getHost("test_1.com")[0])
+        self.assertEquals(None, self.aws.getHost("foo.bar"))
 
 if __name__ == '__main__':
-
-    b = BotoWrap.BotoWrap()
-    print b.getHost("test.com")
-    print b.getHost("smetrics.org")
-    print b.setHost("smetrics.org")
-    print b.host
-
-    fjkdsajflajladsjfldjs
-
     unittest.main()
-
-
