@@ -30,5 +30,13 @@ class TestBotoWrap(unittest.TestCase):
         self.assertEquals("Z", self.aws.getHost("test_1.com")[0])
         self.assertEquals(None, self.aws.getHost("foo.bar"))
 
+    def test_setHost(self):
+        pass
+
+    def test_updateRecordSet(self):
+        self.aws.updateRecordSet(
+            criteria={"type":"TXT"}, 
+            to={"name":"testx.laironald.com."})
+
 if __name__ == '__main__':
     unittest.main()

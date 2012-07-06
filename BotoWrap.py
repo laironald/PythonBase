@@ -112,19 +112,46 @@ class BotoWrap:
 
         Args: 
           host: the name (or hosted zone id)
+        Returns:
+          the hosted zone id
         """
         try:
             self.r53.get_all_rrsets(host)
             self.host = host
         except:
             self.host = self.getHost(host)
+        return self.host
 
-    def updateRecordSet(self, domain, host=None):
+    def updateRecordSet(self, criteria, to, host=None):
         """ 
+        update a record set
+       
+        Args:
+          **name, type, ttl, value -> dict
+          criteria: dictionary with keys above to modify
+          to: dictionary with keys above to change
         """
+        def record(changes, value, **kwargs):
+            chg = changes.add_change(**kwargs)
+            chg.add_value(value)
+            return changes
+            
+        host = self.setHost(host)
         changes = self.r53.get_all_rrsets(host)
-        recsets = [c for c in changes]
-        
+        #find recsets
+        chgBool = False
+        for c in changes:
+            ac = {"name": c.name, "type": c.type, 
+                  "ttl": c.ttl, "value": c.to_print()}
+            if set(criteria.items()) <= set(ac.items()):
+                changes = record(changes, action="DELETE", **ac)
+                for k in to:
+                    ac[k] = to[k]
+                changes = record(changes, action="CREATE", **ac)
+                chgBool = True
+
+        if chgBool:
+            changes.commit()
 
     #======================================= S3
 
