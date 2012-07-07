@@ -82,6 +82,11 @@ class BotoWrap:
 
     #======================================= Route 53
 
+    def _r53record(self, changes, value, **kwargs):
+        chg = changes.add_change(**kwargs)
+        chg.add_value(value)
+        return changes
+            
     def getHost(self, host=None, **kwargs):
         """Get the Host Zone ID for the host specified
 
@@ -116,13 +121,26 @@ class BotoWrap:
           the hosted zone id
         """
         try:
-            self.r53.get_all_rrsets(host)
+            self.r53.get_hosted_zone(host)
             self.host = host
         except:
             self.host = self.getHost(host)
         return self.host
 
-    def updateRecordSet(self, criteria, to, host=None):
+    def createRecordSet(self, host=None, template=None):
+        host = self.setHost(host)
+        if template == "gmail":
+            domain = self.r53.get_hosted_zone(host)["GetHostedZoneResponse"]["HostedZone"]["Name"]
+            changes = self.r53.get_all_rrsets(host)
+            changes = self._r53record(changes, action="CREATE", name="mail."+domain, 
+                type="CNAME", value="ghs.googlehosted.com")
+            changes = self._r53record(changes, action="CREATE", name=domain, type="MX", ttl="300",
+                value="1 ASPMX.L.GOOGLE.COM.,5 ALT1.ASPMX.L.GOOGLE.COM.,5 ALT1.ASPMX.L.GOOGLE.COM.,10 ASPMX2.GOOGLEMAIL.COM.,10 ASPMX3.GOOGLEMAIL.COM.")
+            print changes.to_xml()
+            changes.commit()
+        pass
+
+    def updateRecordSet(self, criteria, to={}, host=None):
         """ 
         update a record set
        
@@ -130,12 +148,8 @@ class BotoWrap:
           **name, type, ttl, value -> dict
           criteria: dictionary with keys above to modify
           to: dictionary with keys above to change
+          host: modify the hosted zone id
         """
-        def record(changes, value, **kwargs):
-            chg = changes.add_change(**kwargs)
-            chg.add_value(value)
-            return changes
-            
         host = self.setHost(host)
         changes = self.r53.get_all_rrsets(host)
         #find recsets
@@ -144,10 +158,10 @@ class BotoWrap:
             ac = {"name": c.name, "type": c.type, 
                   "ttl": c.ttl, "value": c.to_print()}
             if set(criteria.items()) <= set(ac.items()):
-                changes = record(changes, action="DELETE", **ac)
+                changes = self.r53record(changes, action="DELETE", **ac)
                 for k in to:
                     ac[k] = to[k]
-                changes = record(changes, action="CREATE", **ac)
+                changes = self.r53record(changes, action="CREATE", **ac)
                 chgBool = True
 
         if chgBool:
