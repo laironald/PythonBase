@@ -82,11 +82,27 @@ class BotoWrap:
 
     #======================================= Route 53
 
-    def _r53record(self, changes, value, **kwargs):
-        chg = changes.add_change(**kwargs)
-        chg.add_value(value)
-        return changes
-            
+    def _r53record(self, host, value, **kwargs):
+        """ 
+        Performs the commit necessary to modify Route 53
+        """
+        xchg = self.r53.get_all_rrsets(host)
+        chg = xchg.add_change(**kwargs)
+        for v in value.split(","):
+            chg.add_value(v)
+        try:
+            xchg.commit()
+        except:
+            print "ERROR:", kwargs, value
+
+    def getHostDomain(self, host=None):
+        """ Get the domain name        
+          Returns: domain name
+        """
+        if not host:
+            host = self.host
+        return self.r53.get_hosted_zone(host)["GetHostedZoneResponse"]["HostedZone"]["Name"]
+             
     def getHost(self, host=None, **kwargs):
         """Get the Host Zone ID for the host specified
 
@@ -94,7 +110,7 @@ class BotoWrap:
             host: the name (or partial name) of a domain name
               if blank, defaults to the first Hosted Zone
         Returns:
-            a list or single item that represents the HostId
+            a list that represents the Host Ids
         """
         hosts = self.r53.get_all_hosted_zones(**kwargs)
         hosts = hosts.ListHostedZonesResponse.HostedZones
@@ -109,7 +125,7 @@ class BotoWrap:
                     list.append(h.Id)
 
         list = [h.replace("/hostedzone/", "") for h in list]
-        return self._retVarList(list)
+        return list
 
     def setHost(self, host=None):
         """ 
@@ -124,21 +140,87 @@ class BotoWrap:
             self.r53.get_hosted_zone(host)
             self.host = host
         except:
-            self.host = self.getHost(host)
+            self.host = self.getHost(host)[0]
         return self.host
 
-    def createRecordSet(self, host=None, template=None):
-        host = self.setHost(host)
-        if template == "gmail":
-            domain = self.r53.get_hosted_zone(host)["GetHostedZoneResponse"]["HostedZone"]["Name"]
-            changes = self.r53.get_all_rrsets(host)
-            changes = self._r53record(changes, action="CREATE", name="mail."+domain, 
+    def getRecordSet(self, host=None, **kwargs):
+        """ 
+        fetch record sets that match the criteria specified
+
+        Args:
+          **name, type, ttl, value -> dict
+          kwargs follows the values above
+        Returns:
+          List of record arguments that fit the criteria per above
+          if no criterias, return everything
+        """
+        if not host:
+            host = self.host
+        domain = self.getHostDomain(host)
+        changes = self.r53.get_all_rrsets(host)
+        list = []
+
+        if "name" in kwargs:
+            if not kwargs["name"]:
+                kwargs["name"] = domain
+            elif kwargs["name"].find(domain) == -1:
+                kwargs["name"] = kwargs["name"] + "." + domain 
+
+        for c in changes:
+            ac = {"name": c.name, "type": c.type, 
+                  "ttl": c.ttl, "value": c.to_print()}
+            if set(kwargs.items()) <= set(ac.items()):
+                list.append(ac)
+            elif not kwargs:
+                list.append(ac)
+        return list
+
+    def setRecordSet(self, name=None, value=None, host=None, template=None, **kwargs):
+        """ 
+        create new record sets (or delete), depending on action
+
+        Args:
+          **action, name, type, ttl -> dict (kwargs)
+          name: the subdomain
+          value: the entry of the recordset
+
+          template: 
+            gmail: creates mail.domain.com > for Google Apps access
+
+          **note either template OR name+value are required
+        """
+        if not host:
+            host = self.host
+        domain = self.getHostDomain(host)
+        changes = self.r53.get_all_rrsets(host)
+
+        if value:
+            if not name:
+                name = domain
+            elif name.find(domain) == -1:
+                #if it appears just to be a subdomain
+                name = name + "." + domain 
+
+            if "action" not in kwargs:
+                kwargs["action"] = "CREATE"
+            if "ttl" not in kwargs:
+                kwargs["ttl"] = "300"
+            if "type" not in kwargs:
+                # if IP address
+                if re.findall("([0-9]+[.]){3}[0-9]+", value):
+                    kwargs["type"] = "A"
+                # if any dots assume CNAME
+                elif len(value.split(".")) > 1:
+                    kwargs["type"] = "CNAME"
+                else:
+                    kwargs["type"] = "TXT"
+
+            self._r53record(host, name=name, value=value, **kwargs)
+        elif template == "gmail":
+            self._r53record(host, action="CREATE", name="mail."+domain, 
                 type="CNAME", value="ghs.googlehosted.com")
-            changes = self._r53record(changes, action="CREATE", name=domain, type="MX", ttl="300",
+            self._r53record(host, action="CREATE", name=domain, type="MX", ttl="300",
                 value="1 ASPMX.L.GOOGLE.COM.,5 ALT1.ASPMX.L.GOOGLE.COM.,5 ALT1.ASPMX.L.GOOGLE.COM.,10 ASPMX2.GOOGLEMAIL.COM.,10 ASPMX3.GOOGLEMAIL.COM.")
-            print changes.to_xml()
-            changes.commit()
-        pass
 
     def updateRecordSet(self, criteria, to={}, host=None):
         """ 
@@ -150,22 +232,20 @@ class BotoWrap:
           to: dictionary with keys above to change
           host: modify the hosted zone id
         """
-        host = self.setHost(host)
+        if not host:
+            host = self.host
+
+
         changes = self.r53.get_all_rrsets(host)
         #find recsets
-        chgBool = False
         for c in changes:
             ac = {"name": c.name, "type": c.type, 
                   "ttl": c.ttl, "value": c.to_print()}
             if set(criteria.items()) <= set(ac.items()):
-                changes = self.r53record(changes, action="DELETE", **ac)
+                self._r53record(host, action="DELETE", **ac)
                 for k in to:
                     ac[k] = to[k]
-                changes = self.r53record(changes, action="CREATE", **ac)
-                chgBool = True
-
-        if chgBool:
-            changes.commit()
+                self._r53record(host, action="CREATE", **ac)
 
     #======================================= S3
 
