@@ -1,0 +1,92 @@
+import boto.glacier.layer1
+import boto.glacier.vault
+bl = boto.glacier.layer1.Layer1()
+bv = boto.glacier.vault.Vault(bl)
+bl.describe_vault('Microsoft')
+# OUT: {u'SizeInBytes': 439748, u'LastInventoryDate': u'2012-10-06T22:17:08.426Z', u'RequestId': 'LV-UIbpsmcVs9GZjwTD8ht5j4bXuZSu4YfiHiNiU2wOFzqM', u'VaultARN': u'arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft', u'NumberOfArchives': 2, u'CreationDate': u'2012-08-25T20:00:48.325Z', u'VaultName': u'Microsoft'}
+vd = bl.describe_vault('Microsoft')
+bv = boto.glacier.vault.Vault(bl, vd)
+bv.upload_archive('html/Ideas v0.pptx')
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT:   File "/Library/Python/2.7/site-packages/boto/glacier/vault.py", line 76, in upload_archive
+# OUT:     if os.path.getsize(filename) > self.SingleOperationThreshold:
+# OUT:   File "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/genericpath.py", line 49, in getsize
+# OUT: OSError: [Errno 2] No such file or directory: 'html/Ideas v0.pptx'
+bv.retrieve_inventory()
+# OUT: 'sR3bUnStsI6XqEK6ENldZbSSq1wshgvBULRq_vxqGrLG9ELHfmvZD5bWMyaIAN0DKj-jZPN5Y-0VEhnZmDF7IOuPpK_Q'
+bv.retrieve_archive('847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA')
+# OUT: Job(arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft)
+bl.get_job_output('Microsoft', '2UH1skZMvPUtVrga1hPgS5_nUl0dSQrJN--vpCsJjid4Av2YYyOD4zxLczzaudigCPSR4bJkS88ax9vIFPlJHr-0aLFr')
+# OUT: {u'TreeHash': '1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'ContentRange': None, u'ContentType': 'application/octet-stream', u'RequestId': 'SshRcquFuISJOaHR3o5jlVOfAHfoXRqlVVsCNfEA1AIBcaI'}
+bl.get_job_output('Microsoft', '2UH1skZMvPUtVrga1hPgS5_nUl0dSQrJN--vpCsJjid4Av2YYyOD4zxLczzaudigCPSR4bJkS88ax9vIFPlJHr-0aLFr')
+# OUT: {u'TreeHash': '1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'ContentRange': None, u'ContentType': 'application/octet-stream', u'RequestId': 'R4KKERPeuKPrFNdSET2Y5ya54hxDr7keo6tgpWsjcQMWJ4o'}
+bl.get_job_output('Microsoft', 'akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw')
+# OUT: {u'TreeHash': '1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'ContentRange': None, u'ContentType': 'application/octet-stream', u'RequestId': 'XByYQT0Ql9zq2I9mAyj8H7qcnFEdZCN6lYb2xGDX16pANJI'}
+bl.initiate_job('Microsoft', 'akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw')
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT:   File "/Library/Python/2.7/site-packages/boto/glacier/layer1.py", line 347, in initiate_job
+# OUT:     response_headers=response_headers)
+# OUT:   File "/Library/Python/2.7/site-packages/boto/glacier/layer1.py", line 83, in make_request
+# OUT:     raise UnexpectedHTTPResponseError(ok_responses, response)
+# OUT: UnexpectedHTTPResponseError: Expected 202, got (400, code=SerializationException, message=SerializationException)
+bl.get_job_output('Microsoft', 'akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw')
+# OUT: {u'TreeHash': '1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'ContentRange': None, u'ContentType': 'application/octet-stream', u'RequestId': 'eCfL6e0bhpxmh3qt6MeAM8r8apg3Ij-VwWuVmcqte9cmjMA'}
+bl.get_job_output('Microsoft', 'akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw')
+# OUT: {u'TreeHash': '1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'ContentRange': None, u'ContentType': 'application/octet-stream', u'RequestId': 'we8yHTIDI_whBAeZWErfOVN8WyJW7I6vPF3qvhr5bQGrBDo'}
+z = bl.get_job_output('Microsoft', 'akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw')
+z
+# OUT: {u'TreeHash': '1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'ContentRange': None, u'ContentType': 'application/octet-stream', u'RequestId': 'DUKZJpKT6VraohTLdHJ6gjLi15BGwLySfLPIA6zwbX0llN8'}
+z['ContentType']
+# OUT: 'application/octet-stream'
+import boto.glacier.job
+bj = boto.glacier.job.Job(bv)
+bv
+# OUT: Vault("arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft")
+bj.download_to_file('ron')
+bj = boto.glacier.job.Job(bv, z)
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT:   File "/Library/Python/2.7/site-packages/boto/glacier/job.py", line 53, in __init__
+# OUT:     setattr(self, attr_name, response_data[response_name])
+# OUT: KeyError: 'Action'
+bj = boto.glacier.job.Job(bv, {"Action":"ArchiveRetrieval","ArchiveId":"847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA","ArchiveSizeInBytes":372731,"Completed":true,"CompletionDate":"2012-10-06T19:47:12.442Z","CreationDate":"2012-10-06T15:25:44.439Z","InventorySizeInBytes":null,"JobDescription":null,"JobId":"akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw","SHA256TreeHash":"1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52","SNSTopic":null,"StatusCode":"Succeeded","StatusMessage":"Succeeded","VaultARN":"arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft"})
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT: NameError: name 'true' is not defined
+bj = boto.glacier.job.Job(bv, {"Action":"ArchiveRetrieval","ArchiveId":"847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA","ArchiveSizeInBytes":372731,"Completed":true,"CompletionDate":"2012-10-06T19:47:12.442Z","CreationDate":"2012-10-06T15:25:44.439Z","InventorySizeInBytes":null,"JobDescription":null,"JobId":"akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw","SHA256TreeHash":"1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52","SNSTopic":null,"StatusCode":"Succeeded","StatusMessage":"Succeeded","VaultARN":"arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft"})
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT: NameError: name 'true' is not defined
+bj = boto.glacier.job.Job(bv, {"Action":"ArchiveRetrieval","ArchiveId":"847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA","ArchiveSizeInBytes":372731,"Completed":true,"CompletionDate":"2012-10-06T19:47:12.442Z","CreationDate":"2012-10-06T15:25:44.439Z","InventorySizeInBytes":null,"JobDescription":null,"JobId":"akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw","SHA256TreeHash":"1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52","SNSTopic":null,"StatusCode":"Succeeded","StatusMessage":"Succeeded","VaultARN":"arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft"})
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT: NameError: name 'true' is not defined
+import json
+res = json.loads("""{"Action":"ArchiveRetrieval","ArchiveId":"847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA","ArchiveSizeInBytes":372731,"Completed":true,"CompletionDate":"2012-10-06T19:47:12.442Z","CreationDate":"2012-10-06T15:25:44.439Z","InventorySizeInBytes":null,"JobDescription":null,"JobId":"akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw","SHA256TreeHash":"1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52","SNSTopic":null,"StatusCode":"Succeeded","StatusMessage":"Succeeded","VaultARN":"arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft"}""")
+
+res
+# OUT: {u'CompletionDate': u'2012-10-06T19:47:12.442Z', u'VaultARN': u'arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft', u'SNSTopic': None, u'SHA256TreeHash': u'1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'Completed': True, u'InventorySizeInBytes': None, u'JobId': u'akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw', u'ArchiveId': u'847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA', u'JobDescription': None, u'StatusCode': u'Succeeded', u'Action': u'ArchiveRetrieval', u'CreationDate': u'2012-10-06T15:25:44.439Z', u'StatusMessage': u'Succeeded', u'ArchiveSizeInBytes': 372731}
+bj = boto.glacier.job.Job(bv, {"Action":"ArchiveRetrieval","ArchiveId":"847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA","ArchiveSizeInBytes":372731,"Completed":true,"CompletionDate":"2012-10-06T19:47:12.442Z","CreationDate":"2012-10-06T15:25:44.439Z","InventorySizeInBytes":null,"JobDescription":null,"JobId":"akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw","SHA256TreeHash":"1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52","SNSTopic":null,"StatusCode":"Succeeded","StatusMessage":"Succeeded","VaultARN":"arn:aws:glacier:us-east-1:950567909110:vault)
+# OUT:   File "<input>", line 1
+# OUT:     bj = boto.glacier.job.Job(bv, {"Action":"ArchiveRetrieval","ArchiveId":"847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA","ArchiveSizeInBytes":372731,"Completed":true,"CompletionDate":"2012-10-06T19:47:12.442Z","CreationDate":"2012-10-06T15:25:44.439Z","InventorySizeInBytes":null,"JobDescription":null,"JobId":"akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw","SHA256TreeHash":"1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52","SNSTopic":null,"StatusCode":"Succeeded","StatusMessage":"Succeeded","VaultARN":"arn:aws:glacier:us-east-1:950567909110:vault)
+# OUT:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ^
+# OUT: SyntaxError: EOL while scanning string literal
+bj = boto.glacier.job.Job(bv, resp)
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT: NameError: name 'resp' is not defined
+res
+# OUT: {u'CompletionDate': u'2012-10-06T19:47:12.442Z', u'VaultARN': u'arn:aws:glacier:us-east-1:950567909110:vaults/Microsoft', u'SNSTopic': None, u'SHA256TreeHash': u'1772357940a9406e0f965fa973c54dbf85a030fb7514a27b5a75e66e6ba1ba52', u'Completed': True, u'InventorySizeInBytes': None, u'JobId': u'akAT4DUBOLKhNiK5hY1BpHMDAJJ8PcixPIypzDdeRs3YrUU0XZq_jlKAUIf7QV78uzH7G0HWB6F8qdjxQMmLlG48aMIw', u'ArchiveId': u'847s3ngfkA4v5UxSN0qvXgtvoN6wj4yqcbGNwl6Ypd1v_f97fHq6TVOYcWIZaiMa2dxQPMRa4tBSlPkV79ljFCnBq5IspHspGYwMIxjE3pvgd-0fkCIb4gDjR9-MAvxHkr2AhvGvaA', u'JobDescription': None, u'StatusCode': u'Succeeded', u'Action': u'ArchiveRetrieval', u'CreationDate': u'2012-10-06T15:25:44.439Z', u'StatusMessage': u'Succeeded', u'ArchiveSizeInBytes': 372731}
+bj = boto.glacier.job.Job(bv, res)
+bj.download_to_file('ron')
+Credentials.aws_access_ley
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT: NameError: name 'Credentials' is not defined
+Credentials.aws_access_key
+# OUT: Traceback (most recent call last):
+# OUT:   File "<input>", line 1, in <module>
+# OUT: NameError: name 'Credentials' is not defined
+import ConfigParser
